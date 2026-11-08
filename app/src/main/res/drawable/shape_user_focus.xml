@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 焦点态：白色粗描边 + 微亮底，电视上更醒目 -->
     <item android:state_focused="true">
         <shape>
-            <corners android:radius="10mm" />
-            <stroke android:width="2mm" android:color="@color/color_FFFFFF" />
-            <solid android:color="@color/color_6C3D3D3D" />
+            <corners android:radius="12mm" />
+            <stroke android:width="3mm" android:color="#FFFFFFFF" />
+            <solid android:color="#33FFFFFF" />
         </shape>
     </item>
+    <!-- 常态：透明底，让海报自身透出来 -->
     <item android:state_focused="false">
         <shape>
-            <corners android:radius="10mm" />
-            <solid android:color="@color/color_6C3D3D3D"/>
+            <corners android:radius="12mm" />
+            <solid android:color="#00000000" />
         </shape>
     </item>
 </selector>

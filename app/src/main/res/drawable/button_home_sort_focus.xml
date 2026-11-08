@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 焦点态：低调的白色半透明胶囊，替代原来的亮青色 -->
     <item android:state_focused="true">
         <shape>
-            <corners android:radius="20mm"/>
-            <solid android:color="@color/color_BD0CADE2"/>
+            <corners android:radius="22mm"/>
+            <solid android:color="#2EFFFFFF"/>
+            <stroke android:width="2mm" android:color="#80FFFFFF"/>
         </shape>
     </item>
     <item android:state_focused="false">
         <shape>
-            <corners android:radius="20mm"/>
+            <corners android:radius="22mm"/>
             <solid android:color="@android:color/transparent"/>
         </shape>
     </item>

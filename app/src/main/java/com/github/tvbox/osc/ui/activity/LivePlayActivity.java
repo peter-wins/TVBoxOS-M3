@@ -170,6 +170,14 @@ public class LivePlayActivity extends BaseActivity {
     private int currentLiveChannelIndex = -1;
     private int currentLiveLookBackIndex = -1;
     private int currentLiveChangeSourceTimes = 0;
+    // 内存优化：切台防抖，避免连按导致播放器实例堆积
+    private long lastChannelSwitchTime = 0;
+    private static final long CHANNEL_SWITCH_DEBOUNCE_MS = 280;
+    // 内存优化：累计切台次数，超过阈值主动重建播放器释放 native 内存
+    private int channelSwitchCount = 0;
+    // 内存优化：强制重建标记，用于慢速频道被打断后的清理
+    private boolean forceRebuildPlayer = false;
+    private static final int MAX_SWITCH_BEFORE_REBUILD = 25;
     private boolean allowLiveSwitchPlayer = true;
     private LiveChannelItem currentLiveChannelItem = null;
     private String pendingLiveRefreshChannelName = null;
@@ -182,6 +190,8 @@ public class LivePlayActivity extends BaseActivity {
 //EPG   by 龍
     private static LiveChannelItem  channel_Name = null;
     private static Hashtable<String, ArrayList<Epginfo>> hsEpg = new Hashtable<>();
+    // 内存优化：EPG 缓存上限，防止静态缓存无限增长导致 OOM 被杀
+    private static final int MAX_EPG_CACHE_SIZE = 60;
     private CountDownTimer countDownTimer;
 //    private CountDownTimer countDownTimerRightTop;
     private View ll_right_top_loading;
@@ -699,6 +709,10 @@ public class LivePlayActivity extends BaseActivity {
         }
         if (arrayList.isEmpty() && requestNextEpgQueryName(date, channelNameReal, finalEpgTagName, savedEpgKey, epgQueryNames, timeFormat, queryIndex)) {
             return;
+        }
+        // 内存优化：超过上限先清理，避免静态缓存无限增长
+        if (hsEpg.size() >= MAX_EPG_CACHE_SIZE && !hsEpg.containsKey(savedEpgKey)) {
+            hsEpg.clear();
         }
         hsEpg.put(savedEpgKey, arrayList);
         if (!isCurrentEpgRequest(savedEpgKey)) return;
@@ -1345,6 +1359,29 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
+    // 内存优化：系统内存紧张时主动释放，避免被 LMK 杀死
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            try {
+                hsEpg.clear();
+                com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        try {
+            hsEpg.clear();
+            com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+        } catch (Throwable ignored) {
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -1800,6 +1837,15 @@ public class LivePlayActivity extends BaseActivity {
            // showChannelInfo();
             return true;
         }
+        // 内存优化：防抖，避免连按导致多个播放器实例堆积造成 Native 内存暴涨
+        long now = System.currentTimeMillis();
+        if (!changeSource && now - lastChannelSwitchTime < CHANNEL_SWITCH_DEBOUNCE_MS) {
+            return true;
+        }
+        if (!changeSource) lastChannelSwitchTime = now;
+        // 关键修复：切台前取消所有挂起的加载/超时任务，
+        // 否则慢速频道会留下未被取消的加载任务，多个并发导致卡死。
+        cancelPendingLoadTasks();
         ArrayList<LiveChannelItem> groupChannels = getLiveChannels(channelGroupIndex);
         if (groupChannels == null || groupChannels.isEmpty() || liveChannelIndex < 0 || liveChannelIndex >= groupChannels.size()) {
             return false;
@@ -1838,21 +1884,116 @@ public class LivePlayActivity extends BaseActivity {
                 hideSwitchChannelSnapshot();
             }
             String liveUrl = currentLiveChannelItem.getUrl();
-            if (reusePlayer) {
-                mVideoView.setUrl(liveUrl, liveChannelHeader());
+            HashMap<String, String> liveHeaders = liveChannelHeader();
+            // 内存优化：IJK 播放器的 native 内存释放是异步的，replay 会堆积。
+            // 改为 release + 短延迟重建，确保旧实例的 native 内存释放完成。
+            boolean isIjk = previousLivePlayerType != 2;
+            if (reusePlayer && !isIjk) {
+                mVideoView.setUrl(liveUrl, liveHeaders);
                 mVideoView.replay(true);
+                showResolutionAfterChannelSwitch();
             } else {
                 mVideoView.release();
-                mVideoView.setUrl(liveUrl,liveChannelHeader());
-                mVideoView.start();
+                final String finalUrl = liveUrl;
+                final HashMap<String, String> finalHeaders = liveHeaders;
+                mHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mVideoView == null) return;
+                        mVideoView.setUrl(finalUrl, finalHeaders);
+                        mVideoView.start();
+                        showResolutionAfterChannelSwitch();
+                    }
+                }, isIjk ? 120 : 60);
             }
-            showResolutionAfterChannelSwitch();
         }
         loadEpgAfterChannelStarted();
+        // 内存优化：切台后主动回收图片缓存，IJK native 内存增长很快
+        trimMemoryOnSwitch();
+        // 内存优化：累计切台过多时，强制重建播放器释放 native 内存
+        if (++channelSwitchCount >= MAX_SWITCH_BEFORE_REBUILD) {
+            channelSwitchCount = 0;
+            schedulePlayerRebuild();
+        }
         return true;
     }
 
+    // 内存优化：延迟重建播放器，释放 IJK native 内存
+    private void schedulePlayerRebuild() {
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (mVideoView == null || isFinishing()) return;
+                try {
+                    String url = currentLiveChannelItem == null ? null : currentLiveChannelItem.getUrl();
+                    HashMap<String, String> headers = liveChannelHeader();
+                    mVideoView.release();
+                    if (url != null) {
+                        mVideoView.setUrl(url, headers);
+                        mVideoView.start();
+                    }
+                    com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+                } catch (Throwable ignored) {
+                }
+            }
+        }, 600);
+    }
+
+    // 内存优化：切台后的轻量内存回收
+    private void trimMemoryOnSwitch() {
+        try {
+            com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+        } catch (Throwable ignored) {
+        }
+        // EPG 缓存过大时清理非当前频道的
+        if (hsEpg.size() > 30) {
+            String keepKey = null;
+            if (channel_Name != null) {
+                for (String k : hsEpg.keySet()) {
+                    if (k.startsWith(channel_Name.getChannelName() + "_")) {
+                        keepKey = k;
+                        break;
+                    }
+                }
+            }
+            Hashtable<String, ArrayList<Epginfo>> kept = new Hashtable<>();
+            if (keepKey != null && hsEpg.containsKey(keepKey)) {
+                kept.put(keepKey, hsEpg.get(keepKey));
+            }
+            hsEpg.clear();
+            hsEpg.putAll(kept);
+        }
+    }
+
+    // 关键修复：取消所有挂起的加载、超时、EPG 任务
+    // 慢速频道切走时如果不取消，会留下后台连接和解码器实例，多个堆积导致卡死
+    private void cancelPendingLoadTasks() {
+        mHandler.removeCallbacks(mConnectTimeoutChangeSourceRun);
+        mHandler.removeCallbacks(mUpdateNetSpeedRun);
+        mHandler.removeCallbacks(mLoadEpgRun);
+        mHandler.removeCallbacks(mPlaySelectedChannel);
+        mHandler.removeCallbacks(mUpdateResolutionInfoRun);
+        mHandler.removeCallbacks(mHideResolutionInfoRun);
+        mHandler.removeCallbacks(mLongPressRunnable);
+        // 打断慢速加载：pause() 能中断 fetch，release 会在后续重建时彻底清理
+        if (mVideoView != null) {
+            try {
+                int st = mVideoView.getCurrentPlayState();
+                if (st == VideoView.STATE_PREPARING || st == VideoView.STATE_BUFFERING) {
+                    mVideoView.pause();
+                    forceRebuildPlayer = true;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
     private boolean canReusePlayer(int previousLivePlayerType) {
+        // 内存优化：被打断的慢速加载必须重建，否则残留连接
+        if (forceRebuildPlayer) {
+            forceRebuildPlayer = false;
+            return false;
+        }
         int currentLivePlayerType = livePlayerManager.getLivePlayerType();
         return mVideoView != null
                 && mVideoView.getCurrentPlayState() != VideoView.STATE_IDLE
@@ -1909,6 +2050,11 @@ public class LivePlayActivity extends BaseActivity {
 
     //显示设置列表
     private void showSettingGroup() {
+        // 内存优化：分组面板刷新前先回收图片缓存，避免列表重建时 OOM
+        try {
+            com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+        } catch (Throwable ignored) {
+        }
         if (tvLeftChannelListLayout.getVisibility() == View.VISIBLE) {
             mHandler.removeCallbacks(mHideChannelListRun);
             mHandler.post(mHideChannelListRun);
