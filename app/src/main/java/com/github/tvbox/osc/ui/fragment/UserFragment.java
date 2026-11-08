@@ -27,6 +27,7 @@ import com.github.tvbox.osc.cache.RoomDataManger;
 import com.github.tvbox.osc.event.ServerEvent;
 import com.github.tvbox.osc.ui.activity.DetailActivity;
 import com.github.tvbox.osc.ui.activity.FastSearchActivity;
+import com.github.tvbox.osc.ui.activity.LivePlayActivity;
 import com.github.tvbox.osc.ui.activity.SearchActivity;
 import com.github.tvbox.osc.ui.adapter.HomeHotVodAdapter;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
@@ -43,7 +44,6 @@ import com.lzy.okgo.callback.AbsCallback;
 import com.lzy.okgo.model.Response;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
-import com.owen.tvrecyclerview.widget.V7GridLayoutManager;
 import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 
 import org.greenrobot.eventbus.EventBus;
@@ -119,26 +119,12 @@ public class UserFragment extends BaseLazyFragment {
     @Override
     protected void onFragmentResume() {
         super.onFragmentResume();
-        if (Hawk.get(HawkConfig.HOME_REC_STYLE, false)) {
-            tvHotList.setVisibility(View.VISIBLE);
-            tvHotList.setHasFixedSize(true);
-            int spanCount = 5;
-            if(style!=null && Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 1)spanCount=ImgUtil.spanCountByStyle(style,spanCount);
-            tvHotList.setLayoutManager(new V7GridLayoutManager(this.mContext, spanCount));
-            int paddingLeft = -tvHotList.mHorizontalSpacingWithMargins / 2 + getResources().getDimensionPixelSize(R.dimen.vs_6);
-            int paddingTop = getResources().getDimensionPixelSize(R.dimen.vs_20);
-            int paddingRight = -tvHotList.mHorizontalSpacingWithMargins / 2 + getResources().getDimensionPixelSize(R.dimen.vs_6);
-            int paddingBottom = getResources().getDimensionPixelSize(R.dimen.vs_20);
-            tvHotList.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
-        } else {
-            tvHotList.setVisibility(View.VISIBLE);
-            tvHotList.setLayoutManager(new V7LinearLayoutManager(this.mContext, V7LinearLayoutManager.HORIZONTAL, false));
-            int paddingLeft = -tvHotList.mHorizontalSpacingWithMargins / 2 + getResources().getDimensionPixelSize(R.dimen.vs_6);
-            int paddingTop = getResources().getDimensionPixelSize(R.dimen.vs_20);
-            int paddingRight = -tvHotList.mHorizontalSpacingWithMargins / 2 + getResources().getDimensionPixelSize(R.dimen.vs_6);
-            int paddingBottom = getResources().getDimensionPixelSize(R.dimen.vs_20);
-            tvHotList.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
-        }
+        // 方案A：底部固定单行横向海报，不再使用网格样式
+        tvHotList.setVisibility(View.VISIBLE);
+        tvHotList.setHasFixedSize(true);
+        tvHotList.setLayoutManager(new V7LinearLayoutManager(this.mContext, V7LinearLayoutManager.HORIZONTAL, false));
+        int halfSpacing = tvHotList.mHorizontalSpacingWithMargins / 2;
+        tvHotList.setPadding(-halfSpacing, 0, -halfSpacing, 0);
         loadContinueWatching();
     }
 
@@ -225,6 +211,7 @@ public class UserFragment extends BaseLazyFragment {
         tvHeroDesc = findViewById(R.id.tvHeroDesc);
         btnHeroPlay = findViewById(R.id.btnHeroPlay);
         btnHeroSearch = findViewById(R.id.btnHeroSearch);
+        TextView btnHeroLive = findViewById(R.id.btnHeroLive);
         if (btnHeroPlay != null) {
             btnHeroPlay.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -244,6 +231,26 @@ public class UserFragment extends BaseLazyFragment {
                 }
             });
         }
+        if (btnHeroLive != null) {
+            btnHeroLive.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    FastClickCheckUtil.check(v);
+                    jumpActivity(LivePlayActivity.class);
+                }
+            });
+        }
+        // 按钮焦点放大，弥补纯色底在电视上的焦点区分度
+        View.OnFocusChangeListener heroFocusListener = new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                v.animate().scaleX(hasFocus ? 1.06f : 1.0f).scaleY(hasFocus ? 1.06f : 1.0f)
+                        .setDuration(300).setInterpolator(new BounceInterpolator()).start();
+            }
+        };
+        if (btnHeroPlay != null) btnHeroPlay.setOnFocusChangeListener(heroFocusListener);
+        if (btnHeroSearch != null) btnHeroSearch.setOnFocusChangeListener(heroFocusListener);
+        if (btnHeroLive != null) btnHeroLive.setOnFocusChangeListener(heroFocusListener);
         if (Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 1 && homeSourceRec!=null) {
             style=ImgUtil.initStyle();
         }

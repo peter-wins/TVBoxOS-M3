@@ -6,6 +6,12 @@
             <solid android:color="@color/home_accent" />
         </shape>
     </item>
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="1mm" />
+            <solid android:color="@color/home_accent" />
+        </shape>
+    </item>
     <item>
         <shape android:shape="rectangle">
             <corners android:radius="1mm" />

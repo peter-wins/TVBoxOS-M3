@@ -10,6 +10,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
@@ -98,7 +101,6 @@ public class HomeActivity extends BaseActivity {
     private int sortFocused = 0;
     public View sortFocusView = null;
     private String loadingSourceKey;
-    private String previousHomeName;
     private SourceBean previousHomeSource;
     private boolean homeSortLoading = false;
     private boolean refreshHomeRec = false;
@@ -110,7 +112,7 @@ public class HomeActivity extends BaseActivity {
         @Override
         public void run() {
             Date date = new Date();
-            SimpleDateFormat timeFormat = new SimpleDateFormat("yyyy/MM/dd  E  HH:mm", Locale.CHINA);
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.CHINA);
             tvDate.setText(timeFormat.format(date));
             mHandler.postDelayed(this, 1000);
         }
@@ -132,7 +134,7 @@ public class HomeActivity extends BaseActivity {
             hideSysBar();
             ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) topLayout.getLayoutParams();
             params.topMargin = AutoSizeUtils.mm2px(HomeActivity.this, 0.0f);
-            params.height = AutoSizeUtils.mm2px(HomeActivity.this, 64.0f);
+            params.height = AutoSizeUtils.mm2px(HomeActivity.this, 75.0f);
             topLayout.setLayoutParams(params);
             topLayout.setAlpha(1.0f);
             refreshTopInfoTextSize();
@@ -172,6 +174,7 @@ public class HomeActivity extends BaseActivity {
         this.topLayout = findViewById(R.id.topLayout);
         this.tvDate = findViewById(R.id.tvDate);
         this.tvName = findViewById(R.id.tvName);
+        applyHomeBrand();
         this.contentLayout = findViewById(R.id.contentLayout);
         this.mGridView = findViewById(R.id.mGridView);
         this.mViewPager = findViewById(R.id.mViewPager);
@@ -200,7 +203,7 @@ public class HomeActivity extends BaseActivity {
                             TextView textView = view.findViewById(R.id.tvTitle);
                             textView.getPaint().setFakeBoldText(false);
                             if (sortFocused == p) {
-                                view.animate().scaleX(1.1f).scaleY(1.1f).setInterpolator(new BounceInterpolator()).setDuration(300).start();
+                                view.animate().scaleX(1.0f).scaleY(1.0f).setInterpolator(new BounceInterpolator()).setDuration(300).start();
                                 textView.setTextColor(HomeActivity.this.getResources().getColor(R.color.home_text_primary));
                             } else {
                                 view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(300).start();
@@ -221,7 +224,7 @@ public class HomeActivity extends BaseActivity {
                     HomeActivity.this.currentView = view;
                     HomeActivity.this.isDownOrUp = false;
                     HomeActivity.this.sortChange = true;
-                    view.animate().scaleX(1.1f).scaleY(1.1f).setInterpolator(new BounceInterpolator()).setDuration(300).start();
+                    view.animate().scaleX(1.0f).scaleY(1.0f).setInterpolator(new BounceInterpolator()).setDuration(300).start();
                     TextView textView = view.findViewById(R.id.tvTitle);
                     textView.getPaint().setFakeBoldText(true);
                     textView.setTextColor(HomeActivity.this.getResources().getColor(R.color.home_text_primary));
@@ -310,6 +313,13 @@ public class HomeActivity extends BaseActivity {
                 return true;
             }
         });
+        findViewById(R.id.btnHomeSearch).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                jumpActivity(SearchActivity.class);
+            }
+        });
         setLoadSir(this.contentLayout);
         //mHandler.postDelayed(mFindFocus, 500);
     }
@@ -344,11 +354,10 @@ public class HomeActivity extends BaseActivity {
                 updateSortData(newSortData);
                 initViewPager(absXml);
                 updateHomeRec(absXml);
-                if (home != null && home.getName() != null && !home.getName().isEmpty()) tvName.setText(home.getName());
+                applyHomeBrand();
                 tvName.clearAnimation();
                 homeSortLoading = false;
                 loadingSourceKey = null;
-                previousHomeName = null;
                 previousHomeSource = null;
             }
         });
@@ -518,8 +527,7 @@ public class HomeActivity extends BaseActivity {
         SourceBean home = ApiConfig.get().getHomeSourceBean();
         homeSortLoading = keepCurrentContent;
         if (keepCurrentContent && home != null && home.getName() != null && !home.getName().isEmpty()) {
-            previousHomeName = tvName.getText() == null ? null : tvName.getText().toString();
-            tvName.setText(home.getName());
+            applyHomeBrand();
         }
         tvNameAnimation();
         if (home == null) {
@@ -695,8 +703,8 @@ public class HomeActivity extends BaseActivity {
         if (tvName == null || tvDate == null) {
             return;
         }
-        tvName.setTextSize(TypedValue.COMPLEX_UNIT_PX, getResources().getDimension(R.dimen.ts_32));
-        tvDate.setTextSize(TypedValue.COMPLEX_UNIT_PX, getResources().getDimension(R.dimen.ts_24));
+        tvName.setTextSize(TypedValue.COMPLEX_UNIT_PX, getResources().getDimension(R.dimen.ts_20));
+        tvDate.setTextSize(TypedValue.COMPLEX_UNIT_PX, getResources().getDimension(R.dimen.ts_16));
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -797,7 +805,7 @@ public class HomeActivity extends BaseActivity {
                             AutoSizeUtils.mm2px(this.mContext, 0.0f),
                             AutoSizeUtils.mm2px(this.mContext, 0.0f)),
                     ObjectAnimator.ofObject(viewObj, "height", new IntEvaluator(),
-                            AutoSizeUtils.mm2px(this.mContext, 64.0f),
+                            AutoSizeUtils.mm2px(this.mContext, 75.0f),
                             AutoSizeUtils.mm2px(this.mContext, 1.0f)),
                     ObjectAnimator.ofFloat(this.topLayout, "alpha", 1.0f, 0.0f));
             animatorSet.setDuration(200);
@@ -810,7 +818,7 @@ public class HomeActivity extends BaseActivity {
                             AutoSizeUtils.mm2px(this.mContext, 0.0f)),
                     ObjectAnimator.ofObject(viewObj, "height", new IntEvaluator(),
                             AutoSizeUtils.mm2px(this.mContext, 1.0f),
-                            AutoSizeUtils.mm2px(this.mContext, 64.0f)),
+                            AutoSizeUtils.mm2px(this.mContext, 75.0f)),
                     ObjectAnimator.ofFloat(this.topLayout, "alpha", 0.0f, 1.0f));
             animatorSet.setDuration(200);
             animatorSet.start();
@@ -979,11 +987,16 @@ public class HomeActivity extends BaseActivity {
         if (previousHomeSource != null) {
             ApiConfig.get().setSourceBean(previousHomeSource);
         }
-        if (previousHomeName != null && !previousHomeName.isEmpty()) {
-            tvName.setText(previousHomeName);
-        }
+        applyHomeBrand();
         previousHomeSource = null;
-        previousHomeName = null;
+    }
+
+    private void applyHomeBrand() {
+        if (tvName == null) return;
+        SpannableString brand = new SpannableString("影·视");
+        brand.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.home_accent)),
+                1, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        tvName.setText(brand);
     }
 
     private void tvNameAnimation()

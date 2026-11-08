@@ -22,18 +22,12 @@ import java.util.ArrayList;
 import me.jessyan.autosize.utils.AutoSizeUtils;
 
 public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHolder> {
-    private int defaultWidth;
-    private final ImgUtil.Style style;
     private String tvRateValue;
     // 首页是否处于“继续观看”模式（决定来源徽章与删除态）
     private boolean historyMode = false;
 
     public HomeHotVodAdapter(ImgUtil.Style style, String tvRate) {
         super(R.layout.item_user_hot_vod, new ArrayList<>());
-        if (style != null) {
-            this.defaultWidth = ImgUtil.getStyleDefaultWidth(style);
-        }
-        this.style = style;
         this.tvRateValue = tvRate;
     }
 
@@ -63,37 +57,33 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
             tvNote.setVisibility(View.VISIBLE);
         }
         helper.setText(R.id.tvName, item.name);
+
+        TextView tvInfo = helper.getView(R.id.tvInfo);
+        StringBuilder info = new StringBuilder();
+        appendInfo(info, item.type);
+        appendInfo(info, item.area);
+        if (item.year > 0) appendInfo(info, String.valueOf(item.year));
+        String infoText = info.toString();
+        tvInfo.setText(infoText);
+        tvInfo.setVisibility(infoText.isEmpty() ? View.GONE : View.VISIBLE);
+
         ImageView ivThumb = helper.getView(R.id.ivThumb);
-
-        int newWidth = ImgUtil.defaultWidth;
-        int newHeight = ImgUtil.defaultHeight;
-        if (style != null) {
-            newWidth = defaultWidth;
-            newHeight = (int) (newWidth / style.ratio);
-        }
-
         String pic = item.pic == null ? "" : item.pic.trim();
         if (!TextUtils.isEmpty(pic)) {
             if (ImgUtil.isBase64Image(pic)) {
                 ivThumb.setImageBitmap(ImgUtil.decodeBase64ToBitmap(pic));
             } else {
-                ImgUtil.load(pic, ivThumb, AutoSizeUtils.mm2px(mContext, 14), AutoSizeUtils.mm2px(mContext, newWidth), AutoSizeUtils.mm2px(mContext, newHeight), item.name);
+                ImgUtil.load(pic, ivThumb, AutoSizeUtils.mm2px(mContext, 8),
+                        AutoSizeUtils.mm2px(mContext, 160), AutoSizeUtils.mm2px(mContext, 214), item.name);
             }
         } else {
             ivThumb.setImageDrawable(ImgUtil.createTextDrawable(item.name));
         }
-        applyStyleToImage(ivThumb);
     }
 
-    private void applyStyleToImage(final ImageView ivThumb) {
-        if (style != null) {
-            ViewGroup container = (ViewGroup) ivThumb.getParent();
-            int width = defaultWidth;
-            int height = (int) (width / style.ratio);
-            ViewGroup.LayoutParams containerParams = container.getLayoutParams();
-            containerParams.height = AutoSizeUtils.mm2px(mContext, height);
-            containerParams.width = AutoSizeUtils.mm2px(mContext, width);
-            container.setLayoutParams(containerParams);
-        }
+    private void appendInfo(StringBuilder sb, String value) {
+        if (TextUtils.isEmpty(value)) return;
+        if (sb.length() > 0) sb.append(" · ");
+        sb.append(value);
     }
 }
