@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 沉浸式背景：跟随热播海报焦点切换 -->
+    <!-- 沉浸式背景：跟随海报焦点切换 -->
     <ImageView
         android:id="@+id/ivBackdrop"
         android:layout_width="match_parent"
@@ -19,239 +19,184 @@
         android:layout_height="match_parent"
         android:background="@drawable/gradient_backdrop_mask" />
 
-    <RelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="vertical"
         android:paddingLeft="@dimen/vs_40"
         android:paddingRight="@dimen/vs_40">
 
-        <!-- 六个快捷入口：玻璃卡片 -->
+        <!-- Hero 信息块：跟随海报焦点更新 -->
         <LinearLayout
-            android:id="@+id/tvUserHome"
-            android:layout_width="wrap_content"
+            android:id="@+id/heroInfo"
+            android:layout_width="@dimen/vs_520"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/vs_6"
             android:clipChildren="false"
             android:clipToPadding="false"
-            android:focusable="false"
-            android:focusableInTouchMode="false"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:visibility="gone">
 
             <LinearLayout
-                android:id="@+id/tvHistory"
-                android:layout_width="@dimen/vs_120"
-                android:layout_height="@dimen/vs_130"
-                android:layout_margin="@dimen/vs_6"
-                android:background="@drawable/bg_home_quick_entry"
+                android:id="@+id/heroBadges"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:clipChildren="false"
-                android:clipToPadding="false"
-                android:focusable="true"
-                android:gravity="center"
-                android:nextFocusLeft="@+id/tvSetting"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:layout_width="@dimen/vs_48"
-                    android:layout_height="@dimen/vs_48"
-                    android:alpha="1.0"
-                    android:focusable="false"
-                    android:tint="@color/home_text_primary"
-                    android:src="@drawable/icon_history" />
+                android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/tvHeroNote"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/vs_8"
-                    android:focusable="false"
-                    android:focusableInTouchMode="false"
+                    android:layout_marginRight="@dimen/vs_10"
+                    android:background="@drawable/bg_home_badge_solid"
+                    android:ellipsize="end"
                     android:gravity="center"
-                    android:letterSpacing="0.05"
-                    android:text="历史"
+                    android:maxLines="1"
+                    android:paddingLeft="@dimen/vs_12"
+                    android:paddingTop="@dimen/vs_4"
+                    android:paddingRight="@dimen/vs_12"
+                    android:paddingBottom="@dimen/vs_4"
+                    android:singleLine="true"
+                    android:textColor="#FF1A1206"
+                    android:textSize="@dimen/ts_14"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvHeroYear"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="@dimen/vs_10"
+                    android:background="@drawable/bg_home_chip_glass"
+                    android:gravity="center"
+                    android:paddingLeft="@dimen/vs_12"
+                    android:paddingTop="@dimen/vs_4"
+                    android:paddingRight="@dimen/vs_12"
+                    android:paddingBottom="@dimen/vs_4"
+                    android:singleLine="true"
                     android:textColor="@color/home_text_primary"
-                    android:textSize="@dimen/ts_24" />
+                    android:textSize="@dimen/ts_14"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvHeroType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_home_chip_glass"
+                    android:gravity="center"
+                    android:maxWidth="@dimen/vs_240"
+                    android:paddingLeft="@dimen/vs_12"
+                    android:paddingTop="@dimen/vs_4"
+                    android:paddingRight="@dimen/vs_12"
+                    android:paddingBottom="@dimen/vs_4"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:textColor="@color/home_text_primary"
+                    android:textSize="@dimen/ts_14"
+                    android:visibility="gone" />
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvHeroName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/vs_8"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.02"
+                android:maxLines="2"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0"
+                android:shadowDy="4"
+                android:shadowRadius="16"
+                android:textColor="@color/home_text_primary"
+                android:textSize="@dimen/ts_50"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvHeroMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/vs_5"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:textColor="@color/home_text_secondary"
+                android:textSize="@dimen/ts_16"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvHeroDesc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/vs_5"
+                android:ellipsize="end"
+                android:lineSpacingMultiplier="1.45"
+                android:maxLines="2"
+                android:textColor="@color/home_text_secondary"
+                android:textSize="@dimen/ts_16"
+                android:visibility="gone" />
 
             <LinearLayout
-                android:id="@+id/tvLive"
-                android:layout_width="@dimen/vs_120"
-                android:layout_height="@dimen/vs_130"
-                android:layout_margin="@dimen/vs_6"
-                android:background="@drawable/bg_home_quick_entry"
+                android:id="@+id/heroActions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/vs_12"
                 android:clipChildren="false"
-                android:clipToPadding="false"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:layout_width="@dimen/vs_48"
-                    android:layout_height="@dimen/vs_48"
-                    android:alpha="1.0"
-                    android:focusable="false"
-                    android:tint="@color/home_text_primary"
-                    android:src="@drawable/icon_live" />
+                android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/btnHeroPlay"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/vs_8"
-                    android:focusable="false"
-                    android:focusableInTouchMode="false"
+                    android:layout_height="@dimen/vs_45"
+                    android:background="@drawable/bg_home_btn_primary"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center"
-                    android:letterSpacing="0.05"
-                    android:text="直播"
-                    android:textColor="@color/home_text_primary"
-                    android:textSize="@dimen/ts_24" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/tvSearch"
-                android:layout_width="@dimen/vs_120"
-                android:layout_height="@dimen/vs_130"
-                android:layout_margin="@dimen/vs_6"
-                android:background="@drawable/bg_home_quick_entry"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:layout_width="@dimen/vs_48"
-                    android:layout_height="@dimen/vs_48"
-                    android:alpha="1.0"
-                    android:focusable="false"
-                    android:tint="@color/home_text_primary"
-                    android:src="@drawable/icon_search" />
+                    android:paddingLeft="@dimen/vs_24"
+                    android:paddingRight="@dimen/vs_24"
+                    android:text="播放"
+                    android:textColor="#FF1A1206"
+                    android:textSize="@dimen/ts_20"
+                    android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/btnHeroSearch"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/vs_8"
-                    android:focusable="false"
-                    android:focusableInTouchMode="false"
+                    android:layout_height="@dimen/vs_45"
+                    android:layout_marginLeft="@dimen/vs_15"
+                    android:background="@drawable/bg_home_btn_secondary"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center"
-                    android:letterSpacing="0.05"
-                    android:text="搜索"
+                    android:paddingLeft="@dimen/vs_24"
+                    android:paddingRight="@dimen/vs_24"
+                    android:text="搜索片源"
                     android:textColor="@color/home_text_primary"
-                    android:textSize="@dimen/ts_24" />
+                    android:textSize="@dimen/ts_20"
+                    android:textStyle="bold" />
             </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/tvPush"
-                android:layout_width="@dimen/vs_120"
-                android:layout_height="@dimen/vs_130"
-                android:layout_margin="@dimen/vs_6"
-                android:background="@drawable/bg_home_quick_entry"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:layout_width="@dimen/vs_48"
-                    android:layout_height="@dimen/vs_48"
-                    android:alpha="1.0"
-                    android:focusable="false"
-                    android:tint="@color/home_text_primary"
-                    android:src="@drawable/icon_push" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/vs_8"
-                    android:focusable="false"
-                    android:focusableInTouchMode="false"
-                    android:gravity="center"
-                    android:letterSpacing="0.05"
-                    android:text="推送"
-                    android:textColor="@color/home_text_primary"
-                    android:textSize="@dimen/ts_24" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/tvFavorite"
-                android:layout_width="@dimen/vs_120"
-                android:layout_height="@dimen/vs_130"
-                android:layout_margin="@dimen/vs_6"
-                android:background="@drawable/bg_home_quick_entry"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:layout_width="@dimen/vs_48"
-                    android:layout_height="@dimen/vs_48"
-                    android:alpha="1.0"
-                    android:focusable="false"
-                    android:tint="@color/home_text_primary"
-                    android:src="@drawable/icon_collect" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/vs_8"
-                    android:focusable="false"
-                    android:focusableInTouchMode="false"
-                    android:gravity="center"
-                    android:letterSpacing="0.05"
-                    android:text="收藏"
-                    android:textColor="@color/home_text_primary"
-                    android:textSize="@dimen/ts_24" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/tvSetting"
-                android:layout_width="@dimen/vs_120"
-                android:layout_height="@dimen/vs_130"
-                android:layout_margin="@dimen/vs_6"
-                android:background="@drawable/bg_home_quick_entry"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:focusable="true"
-                android:gravity="center"
-                android:nextFocusRight="@+id/tvHistory"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:layout_width="@dimen/vs_48"
-                    android:layout_height="@dimen/vs_48"
-                    android:alpha="1.0"
-                    android:focusable="false"
-                    android:tint="@color/home_text_primary"
-                    android:src="@drawable/icon_setting" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/vs_8"
-                    android:focusable="false"
-                    android:focusableInTouchMode="false"
-                    android:gravity="center"
-                    android:letterSpacing="0.05"
-                    android:text="设置"
-                    android:textColor="@color/home_text_primary"
-                    android:textSize="@dimen/ts_24" />
-            </LinearLayout>
-
         </LinearLayout>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/vs_0"
+            android:layout_weight="1" />
 
         <!-- 区块标题 -->
         <LinearLayout
             android:id="@+id/hotHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@+id/tvUserHome"
-            android:layout_marginTop="@dimen/vs_15"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <View
                 android:layout_width="@dimen/vs_4"
-                android:layout_height="@dimen/vs_28"
+                android:layout_height="@dimen/vs_24"
                 android:layout_marginRight="@dimen/vs_12"
                 android:background="@drawable/bar_home_accent" />
 
@@ -262,30 +207,35 @@
                 android:letterSpacing="0.08"
                 android:text="热播推荐"
                 android:textColor="@color/home_text_primary"
-                android:textSize="@dimen/ts_28"
+                android:textSize="@dimen/ts_24"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvHotSub"
                 android:layout_width="@dimen/vs_0"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:ellipsize="end"
                 android:gravity="end"
+                android:maxLines="1"
+                android:singleLine="true"
                 android:text="长按 OK 搜索同类影片"
                 android:textColor="@color/home_text_tertiary"
-                android:textSize="@dimen/ts_18" />
+                android:textSize="@dimen/ts_16" />
         </LinearLayout>
 
         <com.owen.tvrecyclerview.widget.TvRecyclerView
             android:id="@+id/tvHotList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@+id/hotHeader"
-            android:clipChildren="true"
+            android:layout_marginTop="@dimen/vs_10"
+            android:layout_marginBottom="@dimen/vs_20"
+            android:clipChildren="false"
             android:clipToPadding="false"
             android:visibility="gone"
-            app:tv_horizontalSpacingWithMargins="@dimen/vs_10"
+            app:tv_horizontalSpacingWithMargins="@dimen/vs_15"
             app:tv_selectedItemIsCentered="true"
-            app:tv_verticalSpacingWithMargins="@dimen/vs_10" />
+            app:tv_verticalSpacingWithMargins="@dimen/vs_15" />
 
-    </RelativeLayout>
+    </LinearLayout>
 </FrameLayout>

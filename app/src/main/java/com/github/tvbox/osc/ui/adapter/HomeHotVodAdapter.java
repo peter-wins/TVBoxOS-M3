@@ -25,6 +25,8 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
     private int defaultWidth;
     private final ImgUtil.Style style;
     private String tvRateValue;
+    // 首页是否处于“继续观看”模式（决定来源徽章与删除态）
+    private boolean historyMode = false;
 
     public HomeHotVodAdapter(ImgUtil.Style style, String tvRate) {
         super(R.layout.item_user_hot_vod, new ArrayList<>());
@@ -35,19 +37,23 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
         this.tvRateValue = tvRate;
     }
 
+    public void setHistoryMode(boolean historyMode) {
+        this.historyMode = historyMode;
+    }
+
     @Override
     protected void convert(BaseViewHolder helper, Movie.Video item) {
         FrameLayout tvDel = helper.getView(R.id.delFrameLayout);
         tvDel.setVisibility(HawkConfig.hotVodDelete ? View.VISIBLE : View.GONE);
 
         TextView tvRate = helper.getView(R.id.tvRate);
-        if (Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 2) {
+        if (historyMode) {
             SourceBean bean = ApiConfig.get().getSource(item.sourceKey);
             tvRateValue = bean != null ? bean.getName() : "";
         }
         tvRate.setText(tvRateValue);
-        // 仅在历史记录模式下用左上角徽章标注来源，避免与区块标题重复
-        tvRate.setVisibility(Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 2 && !TextUtils.isEmpty(tvRateValue) ? View.VISIBLE : View.GONE);
+        // 仅在“继续观看”模式用左上角徽章标注来源，避免与区块标题重复
+        tvRate.setVisibility(historyMode && !TextUtils.isEmpty(tvRateValue) ? View.VISIBLE : View.GONE);
 
         TextView tvNote = helper.getView(R.id.tvNote);
         if (item.note == null || item.note.isEmpty()) {

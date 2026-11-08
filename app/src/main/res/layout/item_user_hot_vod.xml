@@ -8,8 +8,8 @@
 
     <FrameLayout
         android:id="@+id/mItemFrame"
-        android:layout_width="@dimen/vs_214"
-        android:layout_height="@dimen/vs_280">
+        android:layout_width="@dimen/vs_150"
+        android:layout_height="@dimen/vs_204">
 
         <ImageView
             android:id="@+id/ivThumb"
@@ -20,7 +20,7 @@
         <!-- 底部渐变压暗，让标题压在海报上依然清晰 -->
         <View
             android:layout_width="match_parent"
-            android:layout_height="@dimen/vs_120"
+            android:layout_height="@dimen/vs_90"
             android:layout_gravity="bottom"
             android:background="@drawable/shape_home_poster_name_scrim" />
 
