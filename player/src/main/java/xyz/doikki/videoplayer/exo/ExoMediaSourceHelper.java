@@ -14,6 +14,8 @@ import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
 import androidx.media3.exoplayer.rtsp.RtspMediaSource;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor;
@@ -31,6 +33,7 @@ public final class ExoMediaSourceHelper {
     private static ExoMediaSourceHelper sInstance;
 
     private final Context mAppContext;
+    private volatile ExtractorsFactory cachedExtractorsFactory;
     private OkHttpDataSource.Factory mHttpDataSourceFactory;
     private Cache mCache;
     private OkHttpClient mClient;
@@ -99,8 +102,23 @@ public final class ExoMediaSourceHelper {
                         .createMediaSource(MediaItem.fromUri(contentUri));
             default:
             case C.TYPE_OTHER:
-                return new ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(contentUri));
+                // 用完整的 extractor 集合，并对 TS/PS 等直播封装做更宽松的探测
+                return new ProgressiveMediaSource.Factory(factory, buildExtractorsFactory())
+                        .createMediaSource(MediaItem.fromUri(contentUri));
         }
+    }
+
+    /**
+     * 构建 extractor 工厂。
+     * DefaultExtractorsFactory 已覆盖 MP4/TS/MKV/FLV 等主流封装，
+     * 这里开启常比特率 seek，对没有准确索引的自建源更宽容。
+     */
+    private ExtractorsFactory buildExtractorsFactory() {
+        if (cachedExtractorsFactory != null) return cachedExtractorsFactory;
+        ExtractorsFactory factory = new DefaultExtractorsFactory()
+                .setConstantBitrateSeekingEnabled(true);
+        cachedExtractorsFactory = factory;
+        return factory;
     }
 
     private int inferContentType(String fileName, Map<String, String> headers) {

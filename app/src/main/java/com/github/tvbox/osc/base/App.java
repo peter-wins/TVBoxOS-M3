@@ -44,6 +44,13 @@ public class App extends MultiDexApplication {
         // OKGo
         OkGoHelper.init(); //台标获取
         EpgUtil.init();
+        // 探测 FFmpeg 软解是否可用（用于日志诊断）
+        try {
+            LOG.i("FFmpeg available=" + xyz.doikki.videoplayer.exo.FfmpegSupport.isAvailable()
+                    + " version=" + xyz.doikki.videoplayer.exo.FfmpegSupport.version());
+        } catch (Throwable th) {
+            LOG.i("FFmpeg probe failed: " + th.getClass().getSimpleName());
+        }
         // 初始化Web服务器
         ControlManager.init(this);
         //初始化数据库
