@@ -177,7 +177,7 @@ public class LivePlayActivity extends BaseActivity {
     private int channelSwitchCount = 0;
     // 内存优化：强制重建标记，用于慢速频道被打断后的清理
     private boolean forceRebuildPlayer = false;
-    private static final int MAX_SWITCH_BEFORE_REBUILD = 25;
+    private static final int MAX_SWITCH_BEFORE_REBUILD = 15;
     private boolean allowLiveSwitchPlayer = true;
     private LiveChannelItem currentLiveChannelItem = null;
     private String pendingLiveRefreshChannelName = null;
@@ -1893,18 +1893,34 @@ public class LivePlayActivity extends BaseActivity {
                 mVideoView.replay(true);
                 showResolutionAfterChannelSwitch();
             } else {
+                // IJK 的 release() 是异步的（子线程），先 pause 同步中断 fetch，
+                // 再 release，给 native 内存释放留出时间
+                if (isIjk) {
+                    try {
+                        mVideoView.pause();
+                    } catch (Throwable ignored) {
+                    }
+                }
                 mVideoView.release();
                 final String finalUrl = liveUrl;
                 final HashMap<String, String> finalHeaders = liveHeaders;
+                final boolean ijkFlag = isIjk;
                 mHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         if (mVideoView == null) return;
+                        if (ijkFlag) {
+                            // 提示系统回收 IJK 遗留的 native 内存
+                            try {
+                                System.runFinalization();
+                            } catch (Throwable ignored) {
+                            }
+                        }
                         mVideoView.setUrl(finalUrl, finalHeaders);
                         mVideoView.start();
                         showResolutionAfterChannelSwitch();
                     }
-                }, isIjk ? 120 : 60);
+                }, isIjk ? 250 : 80);
             }
         }
         loadEpgAfterChannelStarted();
@@ -1936,7 +1952,7 @@ public class LivePlayActivity extends BaseActivity {
                 } catch (Throwable ignored) {
                 }
             }
-        }, 600);
+        }, 900);
     }
 
     // 内存优化：切台后的轻量内存回收
