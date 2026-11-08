@@ -80,6 +80,9 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
             mTrackSelector = new DefaultTrackSelector(mAppContext);
         }
         mInternalPlayer = new ExoPlayer.Builder(mAppContext)
+                // A stalled TV codec must not hold the application thread through an input timeout.
+                .setReleaseTimeoutMs(100)
+                .setDetachSurfaceTimeoutMs(500)
                 .setRenderersFactory(mRenderersFactory)
                 .setTrackSelector(mTrackSelector)
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(mAppContext))
