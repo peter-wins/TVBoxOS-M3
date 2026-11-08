@@ -119,19 +119,19 @@ public class ModelSettingFragment extends BaseLazyFragment {
     @Override
     protected void init() {
         tvFastSearchText = findViewById(R.id.showFastSearchText);
-        tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, true) ? "开启" : "关闭");
+        setSwitch(tvFastSearchText, Hawk.get(HawkConfig.FAST_SEARCH_MODE, true));
         tvm3u8AdText = findViewById(R.id.m3u8AdText);
-        tvm3u8AdText.setText(Hawk.get(HawkConfig.M3U8_PURIFY, false) ? "开启" : "关闭");
+        setSwitch(tvm3u8AdText, Hawk.get(HawkConfig.M3U8_PURIFY, false));
         tvDanmuOpenText = findViewById(R.id.danmuOpenText);
-        tvDanmuOpenText.setText(DanmuHelper.isOpen() ? "开启" : "关闭");
+        setSwitch(tvDanmuOpenText, DanmuHelper.isOpen());
         tvDanmuApiText = findViewById(R.id.danmuApiText);
         refreshDanmuApiText();
         tvAutoSwitchLineText = findViewById(R.id.autoSwitchLineText);
-        tvAutoSwitchLineText.setText(Hawk.get(HawkConfig.AUTO_SWITCH_LINE, true) ? "开启" : "关闭");
+        setSwitch(tvAutoSwitchLineText, Hawk.get(HawkConfig.AUTO_SWITCH_LINE, true));
         tvRecStyleText = findViewById(R.id.showRecStyleText);
-        tvRecStyleText.setText(Hawk.get(HawkConfig.HOME_REC_STYLE, false) ? "是" : "否");
+        setSwitch(tvRecStyleText, Hawk.get(HawkConfig.HOME_REC_STYLE, false), "是", "否");
         tvShowPreviewText = findViewById(R.id.showPreviewText);
-        tvShowPreviewText.setText(Hawk.get(HawkConfig.SHOW_PREVIEW, true) ? "开启" : "关闭");
+        setSwitch(tvShowPreviewText, Hawk.get(HawkConfig.SHOW_PREVIEW, true));
         tvDebugOpen = findViewById(R.id.tvDebugOpen);
         tvParseWebView = findViewById(R.id.tvParseWebView);
         tvMediaCodec = findViewById(R.id.tvMediaCodec);
@@ -159,13 +159,13 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvDns.setText(OkGoHelper.dnsHttpsList.get(Hawk.get(HawkConfig.DOH_URL, 0)));
         tvHomeRec.setText(getHomeRecName(Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC)));
         tvHistoryNum.setText(HistoryHelper.getHistoryNumName(Hawk.get(HawkConfig.HISTORY_NUM, 0)));
-        tvHistoryMerge.setText(Hawk.get(HawkConfig.HISTORY_MERGE, false) ? "开启" : "关闭");
+        setSwitch(tvHistoryMerge, Hawk.get(HawkConfig.HISTORY_MERGE, false));
         tvSearchView.setText(getSearchView(Hawk.get(HawkConfig.SEARCH_VIEW, 0)));
         tvHomeApi.setText(ApiConfig.get().getHomeSourceBean().getName());
         tvScale.setText(PlayerHelper.getScaleName(Hawk.get(HawkConfig.PLAY_SCALE, 0)));
         tvPlay.setText(PlayerHelper.getPlayerName(Hawk.get(HawkConfig.PLAY_TYPE, 2)));
         tvRender.setText(PlayerHelper.getRenderName(Hawk.get(HawkConfig.PLAY_RENDER, 1)));
-        tvIjkCachePlay.setText(Hawk.get(HawkConfig.IJK_CACHE_PLAY, false) ? "开启" : "关闭");
+        setSwitch(tvIjkCachePlay, Hawk.get(HawkConfig.IJK_CACHE_PLAY, false));
         tvHomeDefaultShow = findViewById(R.id.tvHomeText);
         tvHomeDefaultShow.setText(Hawk.get(HawkConfig.DEFAULT_LOAD_LIVE, false) ? "直播" : "点播");
         findViewById(R.id.llDebug).setOnClickListener(new View.OnClickListener() {
@@ -689,8 +689,9 @@ public class ModelSettingFragment extends BaseLazyFragment {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
-                Hawk.put(HawkConfig.SHOW_PREVIEW, !Hawk.get(HawkConfig.SHOW_PREVIEW, true));
-                tvShowPreviewText.setText(Hawk.get(HawkConfig.SHOW_PREVIEW, true) ? "开启" : "关闭");
+                boolean show = !Hawk.get(HawkConfig.SHOW_PREVIEW, true);
+                Hawk.put(HawkConfig.SHOW_PREVIEW, show);
+                setSwitch(tvShowPreviewText, show);
             }
         });
         findViewById(R.id.llHistoryNum).setOnClickListener(new View.OnClickListener() {
@@ -733,8 +734,9 @@ public class ModelSettingFragment extends BaseLazyFragment {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
-                Hawk.put(HawkConfig.FAST_SEARCH_MODE, !Hawk.get(HawkConfig.FAST_SEARCH_MODE, true));
-                tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, true) ? "开启" : "关闭");
+                boolean fast = !Hawk.get(HawkConfig.FAST_SEARCH_MODE, true);
+                Hawk.put(HawkConfig.FAST_SEARCH_MODE, fast);
+                setSwitch(tvFastSearchText, fast);
             }
         });
         findViewById(R.id.m3u8Ad).setOnClickListener(new View.OnClickListener() {
@@ -743,7 +745,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 FastClickCheckUtil.check(v);
                 boolean is_purify=Hawk.get(HawkConfig.M3U8_PURIFY, false);
                 Hawk.put(HawkConfig.M3U8_PURIFY, !is_purify);
-                tvm3u8AdText.setText(!is_purify ? "开启" : "关闭");
+                setSwitch(tvm3u8AdText, !is_purify);
             }
         });
         findViewById(R.id.danmuOpen).setOnClickListener(new View.OnClickListener() {
@@ -752,7 +754,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 FastClickCheckUtil.check(v);
                 boolean open = !DanmuHelper.isOpen();
                 DanmuHelper.setOpen(open);
-                tvDanmuOpenText.setText(open ? "开启" : "关闭");
+                setSwitch(tvDanmuOpenText, open);
                 EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_SET_DANMU_SETTINGS, open));
             }
         });
@@ -776,15 +778,16 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 FastClickCheckUtil.check(v);
                 boolean enable = !Hawk.get(HawkConfig.AUTO_SWITCH_LINE, true);
                 Hawk.put(HawkConfig.AUTO_SWITCH_LINE, enable);
-                tvAutoSwitchLineText.setText(enable ? "开启" : "关闭");
+                setSwitch(tvAutoSwitchLineText, enable);
             }
         });
         findViewById(R.id.llHomeRecStyle).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
-                Hawk.put(HawkConfig.HOME_REC_STYLE, !Hawk.get(HawkConfig.HOME_REC_STYLE, false));
-                tvRecStyleText.setText(Hawk.get(HawkConfig.HOME_REC_STYLE, false) ? "是" : "否");
+                boolean multiLine = !Hawk.get(HawkConfig.HOME_REC_STYLE, false);
+                Hawk.put(HawkConfig.HOME_REC_STYLE, multiLine);
+                setSwitch(tvRecStyleText, multiLine, "是", "否");
             }
         });
 
@@ -794,7 +797,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 FastClickCheckUtil.check(v);
                 boolean historyMerge = !Hawk.get(HawkConfig.HISTORY_MERGE, false);
                 Hawk.put(HawkConfig.HISTORY_MERGE, historyMerge);
-                tvHistoryMerge.setText(historyMerge ? "开启" : "关闭");
+                setSwitch(tvHistoryMerge, historyMerge);
             }
         });
 
@@ -810,6 +813,26 @@ public class ModelSettingFragment extends BaseLazyFragment {
 
         findViewById(R.id.llIjkCachePlay).setOnClickListener((view -> onClickIjkCachePlay(view)));
         findViewById(R.id.llClearCache).setOnClickListener((view -> onClickClearCache(view)));
+        findViewById(R.id.llApi).post(new Runnable() {
+            @Override
+            public void run() {
+                View first = findViewById(R.id.llApi);
+                if (first != null && !first.hasFocus()) {
+                    first.requestFocus();
+                }
+            }
+        });
+    }
+
+    private void setSwitch(TextView tv, boolean on) {
+        setSwitch(tv, on, "开启", "关闭");
+    }
+
+    private void setSwitch(TextView tv, boolean on, String onText, String offText) {
+        if (tv == null) return;
+        tv.setText(on ? onText : offText);
+        tv.setSelected(on);
+        tv.setTextColor(getResources().getColor(on ? R.color.home_accent : R.color.home_text_tertiary));
     }
 
     private void restartAppAfterConfigChanged() {
@@ -908,8 +931,9 @@ public class ModelSettingFragment extends BaseLazyFragment {
 
     private void onClickIjkCachePlay(View v) {
         FastClickCheckUtil.check(v);
-        Hawk.put(HawkConfig.IJK_CACHE_PLAY, !Hawk.get(HawkConfig.IJK_CACHE_PLAY, false));
-        tvIjkCachePlay.setText(Hawk.get(HawkConfig.IJK_CACHE_PLAY, false) ? "开启" : "关闭");
+        boolean enable = !Hawk.get(HawkConfig.IJK_CACHE_PLAY, false);
+        Hawk.put(HawkConfig.IJK_CACHE_PLAY, enable);
+        setSwitch(tvIjkCachePlay, enable);
     }
 
     private void openLocalConfig(boolean live) {
