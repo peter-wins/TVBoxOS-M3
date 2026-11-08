@@ -2,9 +2,9 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="@drawable/shape_user_focus"
+    android:background="@drawable/bg_home_poster_card"
     android:focusable="true"
-    android:padding="@dimen/vs_1">
+    android:padding="@dimen/vs_2">
 
     <FrameLayout
         android:id="@+id/mItemFrame"
@@ -15,73 +15,80 @@
             android:id="@+id/ivThumb"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="@dimen/vs_1"
             android:scaleType="fitXY" />
 
-        <LinearLayout
+        <!-- 底部渐变压暗，让标题压在海报上依然清晰 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/vs_120"
+            android:layout_gravity="bottom"
+            android:background="@drawable/shape_home_poster_name_scrim" />
+
+        <!-- 左上角评分/来源徽章 -->
+        <TextView
+            android:id="@+id/tvRate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="@dimen/vs_5"
-            android:layout_marginTop="@dimen/vs_5"
-            android:layout_marginRight="@dimen/vs_5"
-            android:orientation="horizontal">
+            android:layout_gravity="top|start"
+            android:layout_marginLeft="@dimen/vs_10"
+            android:layout_marginTop="@dimen/vs_10"
+            android:background="@drawable/bg_home_chip_accent"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:paddingLeft="@dimen/vs_8"
+            android:paddingTop="@dimen/vs_2"
+            android:paddingRight="@dimen/vs_8"
+            android:paddingBottom="@dimen/vs_2"
+            android:singleLine="true"
+            android:textColor="@color/home_accent"
+            android:textSize="@dimen/ts_18" />
 
-            <TextView
-                android:id="@+id/tvRate"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="@dimen/vs_5"
-                android:layout_marginRight="@dimen/vs_5"
-                android:background="@drawable/shape_thumb_bottom_name"
-                android:ellipsize="end"
-                android:gravity="center"
-                android:paddingLeft="@dimen/vs_5"
-                android:paddingRight="@dimen/vs_5"
-                android:singleLine="true"
-                android:textColor="@android:color/white"
-                android:textSize="@dimen/ts_16" />
-        </LinearLayout>
-
-
+        <!-- 底部信息：备注 + 标题 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:orientation="vertical"
-            android:padding="@dimen/vs_1">
+            android:paddingLeft="@dimen/vs_10"
+            android:paddingRight="@dimen/vs_10"
+            android:paddingBottom="@dimen/vs_10">
 
             <TextView
                 android:id="@+id/tvNote"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
-                android:layout_marginLeft="@dimen/vs_2"
-                android:layout_marginRight="@dimen/vs_2"
                 android:layout_marginBottom="@dimen/vs_5"
-                android:background="@drawable/shape_thumb_note"
+                android:background="@drawable/bg_home_chip_glass"
                 android:ellipsize="end"
                 android:gravity="center"
-                android:paddingLeft="@dimen/vs_5"
-                android:paddingRight="@dimen/vs_5"
+                android:maxLines="1"
+                android:paddingLeft="@dimen/vs_7"
+                android:paddingTop="@dimen/vs_2"
+                android:paddingRight="@dimen/vs_7"
+                android:paddingBottom="@dimen/vs_2"
                 android:singleLine="true"
-                android:textColor="@android:color/white"
+                android:textColor="@color/home_text_secondary"
                 android:textSize="@dimen/ts_16" />
 
             <TextView
                 android:id="@+id/tvName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/shape_thumb_bottom_name"
                 android:ellipsize="marquee"
-                android:gravity="center"
+                android:gravity="start|bottom"
                 android:marqueeRepeatLimit="marquee_forever"
-                android:padding="@dimen/vs_5"
                 android:singleLine="true"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0"
+                android:shadowDy="2"
+                android:shadowRadius="6"
                 android:text="Title"
-                android:textColor="@android:color/white"
-                android:textSize="@dimen/ts_22" />
+                android:textColor="@color/home_text_primary"
+                android:textSize="@dimen/ts_22"
+                android:textStyle="bold" />
         </LinearLayout>
-        
+
         <FrameLayout
             android:id="@+id/delFrameLayout"
             android:layout_width="match_parent"
@@ -99,6 +106,6 @@
                 android:src="@drawable/icon_delete" />
 
         </FrameLayout>
-        
+
     </FrameLayout>
 </FrameLayout>

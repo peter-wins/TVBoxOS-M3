@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.animation.BounceInterpolator;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -71,10 +72,32 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
     public static HomeHotVodAdapter homeHotVodAdapter;
     private List<Movie.Video> homeSourceRec;
     public static TvRecyclerView tvHotList;
+    private TextView tvHotTitle;
+    // 方案A：沉浸式背景
+    private android.widget.ImageView ivBackdrop;
+    private String lastBackdropUrl = null;
     private SourceViewModel sourceViewModel;
 
     public static UserFragment newInstance() {
         return new UserFragment();
+    }
+
+    // 方案A：更新沉浸式背景
+    private void updateBackdrop(int position) {
+        if (ivBackdrop == null) return;
+        try {
+            if (homeHotVodAdapter == null || position < 0 || position >= homeHotVodAdapter.getData().size()) return;
+            com.github.tvbox.osc.bean.Movie.Video video = homeHotVodAdapter.getData().get(position);
+            if (video == null || video.pic == null || video.pic.isEmpty()) return;
+            if (video.pic.equals(lastBackdropUrl)) return;
+            lastBackdropUrl = video.pic;
+            ivBackdrop.setAlpha(0f);
+            ivBackdrop.setScaleX(1.04f);
+            ivBackdrop.setScaleY(1.04f);
+            com.github.tvbox.osc.util.ImgUtil.load(video.pic, ivBackdrop, 0, 0, 0);
+            ivBackdrop.animate().alpha(0.55f).scaleX(1f).scaleY(1f).setDuration(450).start();
+        } catch (Throwable ignored) {
+        }
     }
 
     public static UserFragment newInstance(List<Movie.Video> recVod) {
@@ -176,6 +199,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
         tvPush.setOnFocusChangeListener(focusChangeListener);
         tvCollect.setOnFocusChangeListener(focusChangeListener);
         tvHotList = findViewById(R.id.tvHotList);
+        ivBackdrop = findViewById(R.id.ivBackdrop);
         if (Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 1 && homeSourceRec!=null) {
             style=ImgUtil.initStyle();
         }
@@ -184,6 +208,16 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
             tvRate="豆瓣热播";
         }else if(Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 1){
           tvRate= homeSourceRec!=null?"站点推荐":"豆瓣热播";
+        }
+        tvHotTitle = findViewById(R.id.tvHotTitle);
+        if (tvHotTitle != null) {
+            if (Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 2) {
+                tvHotTitle.setText("最近观看");
+            } else if (tvRate.isEmpty()) {
+                tvHotTitle.setText("豆瓣热播");
+            } else {
+                tvHotTitle.setText(tvRate);
+            }
         }
         homeHotVodAdapter = new HomeHotVodAdapter(style,tvRate);
         homeHotVodAdapter.setOnItemClickListener(new BaseQuickAdapter.OnItemClickListener() {
@@ -253,6 +287,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
+                updateBackdrop(position);
             }
 
             @Override
@@ -359,7 +394,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
         @Override
         public void onFocusChange(View v, boolean hasFocus) {
             if (hasFocus)
-                v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
+                v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
             else
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
         }

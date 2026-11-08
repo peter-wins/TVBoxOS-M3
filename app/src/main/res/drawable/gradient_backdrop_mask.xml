@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 沉浸背景遮罩：上方压暗顶栏、中间透出海报、下方压暗卡片区 -->
+    <gradient
+        android:angle="270"
+        android:centerColor="#33000000"
+        android:endColor="#F2000000"
+        android:startColor="#CC000000"
+        android:type="linear" />
+</shape>

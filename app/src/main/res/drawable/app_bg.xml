@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 默认全局背景：深色渐变，替代原来的蓝色调图片 -->
+    <item>
+        <shape>
+            <gradient
+                android:angle="270"
+                android:startColor="#FF0A0C10"
+                android:centerColor="#FF141820"
+                android:endColor="#FF05070A"
+                android:type="linear" />
+        </shape>
+    </item>
+</layer-list>
