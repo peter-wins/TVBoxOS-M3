@@ -34,7 +34,7 @@ public class PlayerHelper {
     }
     public static void updateCfg(VideoView videoView, JSONObject playerCfg,int forcePlayerType) {
         int playerType = Hawk.get(HawkConfig.PLAY_TYPE, 2);
-        int renderType = Hawk.get(HawkConfig.PLAY_RENDER, 0);
+        int renderType = Hawk.get(HawkConfig.PLAY_RENDER, 1);
         String ijkCode = Hawk.get(HawkConfig.IJK_CODEC, "硬解码");
         int scale = Hawk.get(HawkConfig.PLAY_SCALE, 0);
         try {
@@ -120,7 +120,7 @@ public class PlayerHelper {
         } else {
             playerFactory = ExoMediaPlayerFactory.create();
         }
-        int renderType = Hawk.get(HawkConfig.PLAY_RENDER, 0);
+        int renderType = Hawk.get(HawkConfig.PLAY_RENDER, 1);
         RenderViewFactory renderViewFactory = null;
         switch (renderType) {
             case 0:

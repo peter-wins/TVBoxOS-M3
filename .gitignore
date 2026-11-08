@@ -101,3 +101,6 @@ lint/tmp/
 .temp/
 output-metadata.json
 .py/
+# 设计稿/工具产物（不纳入版本控制）
+.trae-html-share-packages/
+mockup-tv/

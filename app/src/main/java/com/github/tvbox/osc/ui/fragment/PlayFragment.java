@@ -93,7 +93,7 @@ import com.lzy.okgo.model.HttpHeaders;
 import com.lzy.okgo.model.Response;
 import com.obsez.android.lib.filechooser.ChooserDialog;
 import com.orhanobut.hawk.Hawk;
-import com.google.android.exoplayer2.text.Cue;
+import androidx.media3.common.text.Cue;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -1384,7 +1384,7 @@ public class PlayFragment extends BaseLazyFragment {
             if (mVodPlayerCfg.optInt("pl", 2) == 0) {
                 mVodPlayerCfg.put("pl", 2);
             }
-            mVodPlayerCfg.put("pr", Hawk.get(HawkConfig.PLAY_RENDER, 0));
+            mVodPlayerCfg.put("pr", Hawk.get(HawkConfig.PLAY_RENDER, 1));
             if (!mVodPlayerCfg.has("ijk")) {
                 mVodPlayerCfg.put("ijk", Hawk.get(HawkConfig.IJK_CODEC, "硬解码"));
             }

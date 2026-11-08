@@ -58,6 +58,7 @@ import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.EpgUtil;
+import com.github.tvbox.osc.util.XmlTvParser;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
@@ -79,14 +80,11 @@ import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 
 import java.io.IOException;
-import java.io.StringReader;
+import java.io.BufferedReader;
+import java.io.PushbackReader;
+import java.io.Reader;
 import java.net.URLEncoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -110,8 +108,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import xyz.doikki.videoplayer.exo.ExoMediaSourceHelper;
 import xyz.doikki.videoplayer.player.VideoView;
@@ -165,11 +161,22 @@ public class LivePlayActivity extends BaseActivity {
         }
     };
     private boolean firstLiveEpgLoad = true;
+    // Generation is also read by OkHttp's worker while parsing a response.
+    private volatile int epgRequestGeneration;
+    private okhttp3.Call activeEpgCall;
+    private Runnable pendingChannelStart;
+    private int channelPlaybackGeneration;
+
 
     private List<LiveChannelGroup> liveChannelGroupList = new ArrayList<>();
     private int currentLiveChannelIndex = -1;
     private int currentLiveLookBackIndex = -1;
     private int currentLiveChangeSourceTimes = 0;
+    // 内存优化：切台防抖，避免连按导致播放器实例堆积
+    private long lastChannelSwitchTime = 0;
+    private static final long CHANNEL_SWITCH_DEBOUNCE_MS = 280;
+    // 内存优化：强制重建标记，用于慢速频道被打断后的清理
+    private boolean forceRebuildPlayer = false;
     private boolean allowLiveSwitchPlayer = true;
     private LiveChannelItem currentLiveChannelItem = null;
     private String pendingLiveRefreshChannelName = null;
@@ -182,6 +189,8 @@ public class LivePlayActivity extends BaseActivity {
 //EPG   by 龍
     private static LiveChannelItem  channel_Name = null;
     private static Hashtable<String, ArrayList<Epginfo>> hsEpg = new Hashtable<>();
+    // 内存优化：EPG 缓存上限，防止静态缓存无限增长导致 OOM 被杀
+    private static final int MAX_EPG_CACHE_SIZE = 60;
     private CountDownTimer countDownTimer;
 //    private CountDownTimer countDownTimerRightTop;
     private View ll_right_top_loading;
@@ -534,6 +543,8 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     public void getEpg(Date date) {
+        cancelEpgRequest();
+        if (exitingLivePlay || isFinishing() || channel_Name == null) return;
         String channelName = channel_Name.getChannelName();
         String channelNameReal = normalizeEpgChannelName(getFirstPartBeforeSpace(channelName));
         @SuppressLint("SimpleDateFormat") SimpleDateFormat timeFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -621,47 +632,100 @@ public class LivePlayActivity extends BaseActivity {
         return epgStringAddress != null && !epgStringAddress.trim().isEmpty();
     }
 
+    private void cancelEpgRequest() {
+        epgRequestGeneration++;
+        if (activeEpgCall != null) {
+            activeEpgCall.cancel();
+            activeEpgCall = null;
+        }
+    }
+
+    private boolean canDeliverEpg(int generation, String key) {
+        return generation == epgRequestGeneration && !exitingLivePlay && !isFinishing()
+                && !isDestroyed() && isCurrentEpgRequest(key);
+    }
+
     private void requestEpg(String url, Date date, String channelNameReal, String finalEpgTagName, String savedEpgKey,
                             ArrayList<String> epgQueryNames, SimpleDateFormat timeFormat, int queryIndex) {
+        final int generation = epgRequestGeneration;
         okhttp3.OkHttpClient client = OkGoHelper.getDefaultClient();
         if (client == null) client = com.github.catvod.net.OkHttp.client();
-        client.newCall(new okhttp3.Request.Builder().url(url).build()).enqueue(new okhttp3.Callback() {
-            @Override
-            public void onFailure(okhttp3.Call call, IOException e) {
-                mHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        onEpgRequestFailure(date, channelNameReal, finalEpgTagName, savedEpgKey, epgQueryNames, timeFormat, queryIndex);
+        activeEpgCall = client.newCall(new okhttp3.Request.Builder().url(url).build());
+        activeEpgCall.enqueue(new okhttp3.Callback() {
+            private void postFailure(okhttp3.Call call) {
+                if (call.isCanceled()) return;
+                mHandler.post(() -> {
+                    if (canDeliverEpg(generation, savedEpgKey)) {
+                        activeEpgCall = null;
+                        onEpgRequestFailure(date, channelNameReal, finalEpgTagName, savedEpgKey,
+                                epgQueryNames, timeFormat, queryIndex);
                     }
                 });
             }
 
             @Override
-            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
-                if (response.code() != 200) {
-                    response.close();
-                    mHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            onEpgRequestFailure(date, channelNameReal, finalEpgTagName, savedEpgKey, epgQueryNames, timeFormat, queryIndex);
-                        }
-                    });
+            public void onFailure(okhttp3.Call call, IOException e) {
+                postFailure(call);
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) {
+                // Read AND parse on this OkHttp worker. Only the final UI update goes to main.
+                final ArrayList<Epginfo> programmes;
+                try (okhttp3.Response closeable = response) {
+                    if (call.isCanceled() || generation != epgRequestGeneration) return;
+                    if (!response.isSuccessful() || response.body() == null) {
+                        postFailure(call);
+                        return;
+                    }
+                    long parseStart = android.os.SystemClock.elapsedRealtime();
+                    programmes = parseEpgResponse(response.body().charStream(), finalEpgTagName, date,
+                            () -> call.isCanceled() || generation != epgRequestGeneration);
+                    if (!call.isCanceled() && generation == epgRequestGeneration) {
+                        LOG.i("EPG parsed on worker: " + programmes.size() + " programmes, "
+                                + (android.os.SystemClock.elapsedRealtime() - parseStart) + "ms");
+                    }
+                } catch (Exception e) {
+                    if (!call.isCanceled() && generation == epgRequestGeneration) {
+                        LOG.i("EPG response could not be parsed: " + e.getClass().getSimpleName());
+                        postFailure(call);
+                    }
                     return;
                 }
-                final String body;
-                try {
-                    body = response.body() != null ? response.body().string() : "";
-                } finally {
-                    response.close();
-                }
-                mHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        onEpgRequestResponse(body, date, channelNameReal, finalEpgTagName, savedEpgKey, epgQueryNames, timeFormat, queryIndex);
-                    }
+                mHandler.post(() -> {
+                    if (!canDeliverEpg(generation, savedEpgKey)) return;
+                    activeEpgCall = null;
+                    onEpgRequestResponse(programmes, date, channelNameReal, finalEpgTagName,
+                            savedEpgKey, epgQueryNames, timeFormat, queryIndex);
                 });
             }
         });
+    }
+
+    private ArrayList<Epginfo> parseEpgResponse(Reader input, String channel, Date date,
+                                               XmlTvParser.Cancellation cancellation) throws Exception {
+        PushbackReader reader = new PushbackReader(new BufferedReader(input));
+        int first;
+        do {
+            first = reader.read();
+        } while (first != -1 && (Character.isWhitespace(first) || first == 0xfeff));
+        if (first != -1) reader.unread(first);
+        ArrayList<Epginfo> result = new ArrayList<>();
+        if (first == '<') {
+            for (XmlTvParser.Programme programme : XmlTvParser.parse(reader, channel, date, cancellation)) {
+                if (cancellation.isCancelled()) return new ArrayList<>();
+                result.add(createXmlEpgInfo(date, programme.title, programme.start, programme.end, result.size()));
+            }
+        } else if (first == '{') {
+            StringBuilder json = new StringBuilder();
+            char[] buffer = new char[8192];
+            int count;
+            while (!cancellation.isCancelled() && (count = reader.read(buffer)) != -1) {
+                json.append(buffer, 0, count);
+            }
+            if (!cancellation.isCancelled()) result = parseJsonEpg(json.toString(), date);
+        }
+        return result;
     }
 
     private void onEpgRequestFailure(Date date, String channelNameReal, String finalEpgTagName, String savedEpgKey,
@@ -678,27 +742,16 @@ public class LivePlayActivity extends BaseActivity {
 //        showBottomEpg();
     }
 
-    private void onEpgRequestResponse(String paramString, Date date, String channelNameReal, String finalEpgTagName,
-                                      String savedEpgKey, ArrayList<String> epgQueryNames, SimpleDateFormat timeFormat, int queryIndex) {
+    private void onEpgRequestResponse(ArrayList<Epginfo> arrayList, Date date, String channelNameReal,
+                                      String finalEpgTagName, String savedEpgKey, ArrayList<String> epgQueryNames,
+                                      SimpleDateFormat timeFormat, int queryIndex) {
         if (!isCurrentEpgRequest(savedEpgKey)) return;
-        if (paramString == null || paramString.trim().isEmpty()) {
-            updateEpgPanelState(false);
-            return;
-        }
-        LOG.i("echo-epgTagName:" + channelNameReal);
-        ArrayList<Epginfo> arrayList = new ArrayList<Epginfo>();
-        try {
-            if (isXmlEpgResponse(paramString)) {
-                arrayList = parseXmlEpg(paramString, finalEpgTagName, date);
-            } else if (paramString.contains("epg_data") || paramString.trim().startsWith("{")) {
-                arrayList = parseJsonEpg(paramString, date);
-            }
-
-        } catch (JSONException jSONException) {
-            jSONException.printStackTrace();
-        }
         if (arrayList.isEmpty() && requestNextEpgQueryName(date, channelNameReal, finalEpgTagName, savedEpgKey, epgQueryNames, timeFormat, queryIndex)) {
             return;
+        }
+        // 内存优化：超过上限先清理，避免静态缓存无限增长
+        if (hsEpg.size() >= MAX_EPG_CACHE_SIZE && !hsEpg.containsKey(savedEpgKey)) {
+            hsEpg.clear();
         }
         hsEpg.put(savedEpgKey, arrayList);
         if (!isCurrentEpgRequest(savedEpgKey)) return;
@@ -750,14 +803,6 @@ public class LivePlayActivity extends BaseActivity {
             lowerAddress = lowerAddress.substring(0, queryIndex);
         }
         return lowerAddress.endsWith(".xml");
-    }
-
-    private boolean isXmlEpgResponse(String response) {
-        if (response == null) {
-            return false;
-        }
-        String trimResponse = response.trim();
-        return trimResponse.startsWith("<?xml") || trimResponse.startsWith("<tv") || trimResponse.contains("<programme");
     }
 
     private ArrayList<Epginfo> parseJsonEpg(String response, Date date) throws JSONException {
@@ -854,120 +899,7 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     private String normalizeEpgChannelName(String channelName) {
-        if (channelName == null) {
-            return "";
-        }
-        String trimName = channelName.trim();
-        String compactName = trimName.replace("-", "").replace(" ", "");
-        Matcher cctvMatcher = Pattern.compile("(?i)^(CCTV\\d+(?:\\+|K)?)(?:[\\u4e00-\\u9fa5].*|$)").matcher(compactName);
-        if (cctvMatcher.matches()) {
-            return cctvMatcher.group(1).toUpperCase(Locale.ROOT);
-        }
-        if (compactName.toUpperCase(Locale.ROOT).startsWith("CCTV")) {
-            return compactName.toUpperCase(Locale.ROOT);
-        }
-        return trimName;
-    }
-
-    private ArrayList<Epginfo> parseXmlEpg(String xml, String channelName, Date date) {
-        ArrayList<Epginfo> epgList = new ArrayList<>();
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setIgnoringComments(true);
-            factory.setCoalescing(true);
-            try {
-                factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            } catch (Exception ignored) {
-            }
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
-            Document document = builder.parse(new InputSource(new StringReader(xml)));
-            document.getDocumentElement().normalize();
-
-            String targetName = normalizeEpgChannelName(channelName);
-            ArrayList<String> channelIds = new ArrayList<>();
-            NodeList channelNodes = document.getElementsByTagName("channel");
-            for (int i = 0; i < channelNodes.getLength(); i++) {
-                Node channelNode = channelNodes.item(i);
-                if (channelNode.getNodeType() != Node.ELEMENT_NODE) {
-                    continue;
-                }
-                Element channelElement = (Element) channelNode;
-                String channelId = channelElement.getAttribute("id");
-                if (targetName.equals(normalizeEpgChannelName(channelId))) {
-                    channelIds.add(channelId);
-                    continue;
-                }
-                NodeList displayNameNodes = channelElement.getElementsByTagName("display-name");
-                for (int j = 0; j < displayNameNodes.getLength(); j++) {
-                    String displayName = displayNameNodes.item(j).getTextContent();
-                    if (targetName.equals(normalizeEpgChannelName(displayName))) {
-                        channelIds.add(channelId);
-                        break;
-                    }
-                }
-            }
-
-            Date dayStart = getDayStart(date);
-            Date dayEnd = new Date(dayStart.getTime() + TimeUnit.DAYS.toMillis(1));
-            NodeList programmeNodes = document.getElementsByTagName("programme");
-            for (int i = 0; i < programmeNodes.getLength(); i++) {
-                Node programmeNode = programmeNodes.item(i);
-                if (programmeNode.getNodeType() != Node.ELEMENT_NODE) {
-                    continue;
-                }
-                Element programmeElement = (Element) programmeNode;
-                String programmeChannel = programmeElement.getAttribute("channel");
-                if (!channelIds.contains(programmeChannel) && !targetName.equals(normalizeEpgChannelName(programmeChannel))) {
-                    continue;
-                }
-
-                Date startDate = parseXmlTvDate(programmeElement.getAttribute("start"));
-                Date endDate = parseXmlTvDate(programmeElement.getAttribute("stop"));
-                if (startDate == null || endDate == null || !endDate.after(startDate)) {
-                    continue;
-                }
-                if (!startDate.before(dayEnd) || !endDate.after(dayStart)) {
-                    continue;
-                }
-
-                String title = "";
-                NodeList titleNodes = programmeElement.getElementsByTagName("title");
-                if (titleNodes.getLength() > 0) {
-                    title = titleNodes.item(0).getTextContent();
-                }
-                epgList.add(createXmlEpgInfo(date, title, startDate, endDate, epgList.size()));
-            }
-        } catch (Exception exception) {
-            exception.printStackTrace();
-        }
-        return epgList;
-    }
-
-    private Date getDayStart(Date date) throws ParseException {
-        SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        dayFormat.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));
-        return dayFormat.parse(dayFormat.format(date));
-    }
-
-    private Date parseXmlTvDate(String dateText) {
-        if (dateText == null || dateText.trim().isEmpty()) {
-            return null;
-        }
-        String trimDate = dateText.trim();
-        try {
-            return new SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault()).parse(trimDate);
-        } catch (ParseException ignored) {
-        }
-        try {
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
-            dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));
-            return dateFormat.parse(trimDate);
-        } catch (ParseException ignored) {
-        }
-        return null;
+        return XmlTvParser.normalizeChannelName(channelName);
     }
 
     private Epginfo createXmlEpgInfo(Date epgDate, String title, Date startDate, Date endDate, int index) {
@@ -1179,6 +1111,9 @@ public class LivePlayActivity extends BaseActivity {
             mHandler.removeCallbacks(mConnectTimeoutChangeSourceRun);
             mHandler.removeCallbacks(mUpdateNetSpeedRun);
             exitingLivePlay = true;
+            cancelEpgRequest();
+            cancelPendingChannelStart();
+            mHandler.removeCallbacks(mLoadEpgRun);
             super.onBackPressed();
         }
     }
@@ -1345,8 +1280,38 @@ public class LivePlayActivity extends BaseActivity {
         }
     }
 
+    // 内存优化：系统内存紧张时主动释放，避免被 LMK 杀死
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            try {
+                hsEpg.clear();
+                com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        try {
+            hsEpg.clear();
+            com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+        } catch (Throwable ignored) {
+        }
+    }
+
     @Override
     protected void onDestroy() {
+        exitingLivePlay = true;
+        cancelEpgRequest();
+        cancelPendingChannelStart();
+        mHandler.removeCallbacksAndMessages(null);
+        mmHandler.removeCallbacksAndMessages(null);
+        if (countDownTimer != null) countDownTimer.cancel();
+        if (countDownTimer3 != null) countDownTimer3.cancel();
         super.onDestroy();
         Hawk.put(HawkConfig.PLAYER_IS_LIVE, false);
         hideSwitchChannelSnapshot();
@@ -1800,6 +1765,15 @@ public class LivePlayActivity extends BaseActivity {
            // showChannelInfo();
             return true;
         }
+        // 内存优化：防抖，避免连按导致多个播放器实例堆积造成 Native 内存暴涨
+        long now = System.currentTimeMillis();
+        if (!changeSource && now - lastChannelSwitchTime < CHANNEL_SWITCH_DEBOUNCE_MS) {
+            return true;
+        }
+        if (!changeSource) lastChannelSwitchTime = now;
+        // 关键修复：切台前取消所有挂起的加载/超时任务，
+        // 否则慢速频道会留下未被取消的加载任务，多个并发导致卡死。
+        cancelPendingLoadTasks();
         ArrayList<LiveChannelItem> groupChannels = getLiveChannels(channelGroupIndex);
         if (groupChannels == null || groupChannels.isEmpty() || liveChannelIndex < 0 || liveChannelIndex >= groupChannels.size()) {
             return false;
@@ -1838,21 +1812,115 @@ public class LivePlayActivity extends BaseActivity {
                 hideSwitchChannelSnapshot();
             }
             String liveUrl = currentLiveChannelItem.getUrl();
-            if (reusePlayer) {
-                mVideoView.setUrl(liveUrl, liveChannelHeader());
+            HashMap<String, String> liveHeaders = liveChannelHeader();
+            // 内存优化：IJK 播放器的 native 内存释放是异步的，replay 会堆积。
+            // 改为 release + 短延迟重建，确保旧实例的 native 内存释放完成。
+            boolean isIjk = previousLivePlayerType != 2;
+            if (reusePlayer && !isIjk) {
+                mVideoView.setUrl(liveUrl, liveHeaders);
                 mVideoView.replay(true);
+                showResolutionAfterChannelSwitch();
             } else {
+                // IJK 的 release() 是异步的（子线程），先 pause 同步中断 fetch，
+                // 再 release，给 native 内存释放留出时间
+                if (isIjk) {
+                    try {
+                        mVideoView.pause();
+                    } catch (Throwable ignored) {
+                    }
+                }
                 mVideoView.release();
-                mVideoView.setUrl(liveUrl,liveChannelHeader());
-                mVideoView.start();
+                final String finalUrl = liveUrl;
+                final HashMap<String, String> finalHeaders = liveHeaders;
+                final int generation = channelPlaybackGeneration;
+                pendingChannelStart = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mVideoView == null || exitingLivePlay || isFinishing()
+                                || generation != channelPlaybackGeneration) return;
+                        pendingChannelStart = null;
+                        mVideoView.setUrl(finalUrl, finalHeaders);
+                        mVideoView.start();
+                        showResolutionAfterChannelSwitch();
+                    }
+                };
+                mHandler.postDelayed(pendingChannelStart, isIjk ? 250 : 80);
             }
-            showResolutionAfterChannelSwitch();
         }
         loadEpgAfterChannelStarted();
+        // 内存优化：切台后主动回收图片缓存，IJK native 内存增长很快
+        trimMemoryOnSwitch();
         return true;
     }
 
+    private void cancelPendingChannelStart() {
+        channelPlaybackGeneration++;
+        if (pendingChannelStart != null) {
+            mHandler.removeCallbacks(pendingChannelStart);
+            pendingChannelStart = null;
+        }
+    }
+
+    // 内存优化：切台后的轻量内存回收
+    private void trimMemoryOnSwitch() {
+        try {
+            com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+        } catch (Throwable ignored) {
+        }
+        // EPG 缓存过大时清理非当前频道的
+        if (hsEpg.size() > 30) {
+            String keepKey = null;
+            if (channel_Name != null) {
+                for (String k : hsEpg.keySet()) {
+                    if (k.startsWith(channel_Name.getChannelName() + "_")) {
+                        keepKey = k;
+                        break;
+                    }
+                }
+            }
+            Hashtable<String, ArrayList<Epginfo>> kept = new Hashtable<>();
+            if (keepKey != null && hsEpg.containsKey(keepKey)) {
+                kept.put(keepKey, hsEpg.get(keepKey));
+            }
+            hsEpg.clear();
+            hsEpg.putAll(kept);
+        }
+    }
+
+    // 关键修复：取消所有挂起的加载、超时、EPG 任务
+    // 慢速频道切走时如果不取消，会留下后台连接和解码器实例，多个堆积导致卡死
+    private void cancelPendingLoadTasks() {
+        cancelEpgRequest();
+        cancelPendingChannelStart();
+        mHandler.removeCallbacks(mConnectTimeoutChangeSourceRun);
+        mHandler.removeCallbacks(mUpdateNetSpeedRun);
+        mHandler.removeCallbacks(mLoadEpgRun);
+        mHandler.removeCallbacks(mPlaySelectedChannel);
+        mHandler.removeCallbacks(mUpdateResolutionInfoRun);
+        mHandler.removeCallbacks(mHideResolutionInfoRun);
+        mHandler.removeCallbacks(mLongPressRunnable);
+        // 打断慢速加载：pause() 能中断 fetch，release 会在后续重建时彻底清理
+        if (mVideoView != null) {
+            try {
+                int st = mVideoView.getCurrentPlayState();
+                // Exo can replace a buffering media source through replay/reset. Releasing its
+                // codec here made every fast switch wait on MediaCodec.release on the UI thread.
+                if ((st == VideoView.STATE_PREPARING || st == VideoView.STATE_BUFFERING)
+                        && livePlayerManager.getLivePlayerType() != 2) {
+                    mVideoView.pause();
+                    forceRebuildPlayer = true;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
     private boolean canReusePlayer(int previousLivePlayerType) {
+        // 内存优化：被打断的慢速加载必须重建，否则残留连接
+        if (forceRebuildPlayer) {
+            forceRebuildPlayer = false;
+            return false;
+        }
         int currentLivePlayerType = livePlayerManager.getLivePlayerType();
         return mVideoView != null
                 && mVideoView.getCurrentPlayState() != VideoView.STATE_IDLE
@@ -1909,6 +1977,11 @@ public class LivePlayActivity extends BaseActivity {
 
     //显示设置列表
     private void showSettingGroup() {
+        // 内存优化：分组面板刷新前先回收图片缓存，避免列表重建时 OOM
+        try {
+            com.bumptech.glide.Glide.get(getApplicationContext()).clearMemory();
+        } catch (Throwable ignored) {
+        }
         if (tvLeftChannelListLayout.getVisibility() == View.VISIBLE) {
             mHandler.removeCallbacks(mHideChannelListRun);
             mHandler.post(mHideChannelListRun);
@@ -2328,6 +2401,7 @@ public class LivePlayActivity extends BaseActivity {
         if (!allowLiveSwitchPlayer || currentLiveChannelItem == null || mVideoView == null) {
             return false;
         }
+        cancelPendingChannelStart();
         mHandler.removeCallbacks(mConnectTimeoutChangeSourceRun);
         mVideoView.release();
         if (!livePlayerManager.switchLivePlayer(mVideoView)) {
@@ -2647,6 +2721,7 @@ public class LivePlayActivity extends BaseActivity {
                 livePlayerManager.changeLivePlayerScale(mVideoView, position);
                 break;
             case 2://播放解码
+                cancelPendingChannelStart();
                 mVideoView.release();
                 livePlayerManager.changeLivePlayerType(mVideoView, position);
                 mVideoView.setUrl(currentLiveChannelItem.getUrl(),liveChannelHeader());
@@ -2766,6 +2841,8 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     private void refreshLiveChannelListAndPlay(String channelName, int sourceIndex) {
+        cancelEpgRequest();
+        cancelPendingChannelStart();
         refreshingLiveChannelList = true;
         pendingLiveRefreshChannelName = channelName;
         pendingLiveRefreshSourceIndex = sourceIndex;
@@ -3585,6 +3662,8 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     private void clearLiveChannelList(boolean releasePlayer) {
+        cancelEpgRequest();
+        cancelPendingChannelStart();
         refreshingLiveChannelList = false;
         pendingLiveRefreshChannelName = null;
         pendingLiveRefreshSourceIndex = -1;

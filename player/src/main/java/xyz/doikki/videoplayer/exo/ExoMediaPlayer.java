@@ -8,24 +8,24 @@ import android.view.SurfaceHolder;
 
 import androidx.annotation.NonNull;
 
-import com.google.android.exoplayer2.DefaultLoadControl;
-import com.google.android.exoplayer2.DefaultRenderersFactory;
-import com.google.android.exoplayer2.LoadControl;
-import com.google.android.exoplayer2.PlaybackException;
-import com.google.android.exoplayer2.PlaybackParameters;
-import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.RenderersFactory;
-import com.google.android.exoplayer2.SimpleExoPlayer;
-import com.google.android.exoplayer2.analytics.DefaultAnalyticsCollector;
-import com.google.android.exoplayer2.source.DefaultMediaSourceFactory;
-import com.google.android.exoplayer2.source.MediaSource;
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
-import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
-import com.google.android.exoplayer2.trackselection.TrackSelector;
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
-import com.google.android.exoplayer2.util.Clock;
-import com.google.android.exoplayer2.util.EventLogger;
-import com.google.android.exoplayer2.video.VideoSize;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.LoadControl;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Player;
+import androidx.media3.exoplayer.RenderersFactory;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
+import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
+import androidx.media3.exoplayer.trackselection.TrackSelector;
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
+import androidx.media3.common.util.Clock;
+import androidx.media3.exoplayer.util.EventLogger;
+import androidx.media3.common.VideoSize;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +37,7 @@ import xyz.doikki.videoplayer.util.PlayerUtils;
 public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     protected Context mAppContext;
-    protected SimpleExoPlayer mInternalPlayer;
+    protected ExoPlayer mInternalPlayer;
     protected MediaSource mMediaSource;
     protected ExoMediaSourceHelper mMediaSourceHelper;
 
@@ -70,15 +70,25 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                     .setBackBuffer(0, false)
                     .build();
         }
-        mInternalPlayer = new SimpleExoPlayer.Builder(
-                mAppContext,
-                mRenderersFactory == null ? mRenderersFactory = new DefaultRenderersFactory(mAppContext).setEnableDecoderFallback(true)  // 启用解码器回退，避免硬件加速问题
-                        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER) : mRenderersFactory,
-                mTrackSelector == null ? mTrackSelector = new DefaultTrackSelector(mAppContext) : mTrackSelector,
-                new DefaultMediaSourceFactory(mAppContext),
-                mLoadControl,
-                DefaultBandwidthMeter.getSingletonInstance(mAppContext),
-                new DefaultAnalyticsCollector(Clock.DEFAULT))
+        // Media3 改用了链式 Builder 模式
+        if (mRenderersFactory == null) {
+            mRenderersFactory = new DefaultRenderersFactory(mAppContext)
+                    .setEnableDecoderFallback(true)
+                    .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
+        }
+        if (mTrackSelector == null) {
+            mTrackSelector = new DefaultTrackSelector(mAppContext);
+        }
+        mInternalPlayer = new ExoPlayer.Builder(mAppContext)
+                // A stalled TV codec must not hold the application thread through an input timeout.
+                .setReleaseTimeoutMs(100)
+                .setDetachSurfaceTimeoutMs(500)
+                .setRenderersFactory(mRenderersFactory)
+                .setTrackSelector(mTrackSelector)
+                .setMediaSourceFactory(new DefaultMediaSourceFactory(mAppContext))
+                .setLoadControl(mLoadControl)
+                .setBandwidthMeter(DefaultBandwidthMeter.getSingletonInstance(mAppContext))
+                .setAnalyticsCollector(new DefaultAnalyticsCollector(Clock.DEFAULT))
                 .build();
         setOptions();
 

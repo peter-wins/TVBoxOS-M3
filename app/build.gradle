@@ -1,7 +1,8 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 33
+    namespace "com.github.tvbox.osc"
+    compileSdkVersion 35
 
     defaultConfig {
         applicationId 'com.github.tvbox.osc.jun'
@@ -26,7 +27,7 @@ android {
     productFlavors {
         java {
             dimension "mode"
-            minSdkVersion 19
+            minSdkVersion 21
             ndk {
                 //noinspection ChromeOsAbiSupport
                 abiFilters 'armeabi-v7a', 'arm64-v8a'
@@ -35,7 +36,7 @@ android {
         }
         java32 {
             dimension "mode"
-            minSdkVersion 19
+            minSdkVersion 21
             ndk {
                 //noinspection ChromeOsAbiSupport
                 abiFilters 'armeabi-v7a'
@@ -52,7 +53,7 @@ android {
         }
         python {
             dimension "mode"
-            minSdkVersion 19
+            minSdkVersion 21
             ndk {
                 //noinspection ChromeOsAbiSupport
                 abiFilters 'armeabi-v7a', 'arm64-v8a'
@@ -61,7 +62,7 @@ android {
         }
         python32 {
             dimension "mode"
-            minSdkVersion 19
+            minSdkVersion 21
             ndk {
                 //noinspection ChromeOsAbiSupport
                 abiFilters 'armeabi-v7a'

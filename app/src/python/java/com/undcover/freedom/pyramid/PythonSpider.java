@@ -7,7 +7,7 @@ import android.util.Log;
 
 import com.chaquo.python.PyObject;
 import com.github.catvod.crawler.Spider;
-import com.google.android.exoplayer2.util.UriUtil;
+import androidx.media3.common.util.UriUtil;
 
 import org.json.JSONArray;
 import org.json.JSONException;

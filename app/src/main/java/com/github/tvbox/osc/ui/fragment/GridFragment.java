@@ -61,6 +61,9 @@ import org.json.JSONObject;
 public class GridFragment extends BaseLazyFragment {
     private MovieSort.SortData sortData = null;
     private TvRecyclerView mGridView;
+    // 方案A：沉浸式背景，跟随焦点卡片切换
+    private android.widget.ImageView ivBackdrop;
+    private String lastBackdropUrl = null;
     private SourceViewModel sourceViewModel;
     private GridFilterDialog gridFilterDialog;
     private GridAdapter gridAdapter;
@@ -178,6 +181,7 @@ public class GridFragment extends BaseLazyFragment {
         this.saveCurrentView(); // 保存当前页面
         if(mGridView == null){ // 从layout中拿view
             mGridView = findViewById(R.id.mGridView);
+            ivBackdrop = findViewById(R.id.ivBackdrop);
         }else{ // 复制当前view
             TvRecyclerView v3 = new TvRecyclerView(this.mContext);
             v3.setSpacingWithMargins(10,10);
@@ -230,6 +234,8 @@ public class GridFragment extends BaseLazyFragment {
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
                 itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
+                // 方案A：背景跟随焦点切换
+                updateBackdrop(position);
             }
 
             @Override
@@ -237,6 +243,8 @@ public class GridFragment extends BaseLazyFragment {
 
             }
         });
+        updateBackdrop(0);
+
         mGridView.setOnInBorderKeyEventListener(new TvRecyclerView.OnInBorderKeyEventListener() {
             @Override
             public boolean onInBorderKeyEvent(int direction, View focused) {
@@ -477,6 +485,22 @@ public class GridFragment extends BaseLazyFragment {
         isTop = true;
         if (mGridView == null) return;
         mGridView.scrollToPosition(0);
+    }
+
+    // 方案A：更新沉浸式背景，跟随焦点卡片
+    private void updateBackdrop(int position) {
+        if (ivBackdrop == null) return;
+        try {
+            if (gridAdapter == null || position < 0 || position >= gridAdapter.getData().size()) return;
+            com.github.tvbox.osc.bean.Movie.Video video = gridAdapter.getData().get(position);
+            if (video == null || video.pic == null || video.pic.isEmpty()) return;
+            if (video.pic.equals(lastBackdropUrl)) return;
+            lastBackdropUrl = video.pic;
+            ivBackdrop.setAlpha(0f);
+            com.github.tvbox.osc.util.ImgUtil.load(video.pic, ivBackdrop, 0, 0, 0);
+            ivBackdrop.animate().alpha(0.7f).setDuration(320).start();
+        } catch (Throwable ignored) {
+        }
     }
 
     public void showFilter() {
