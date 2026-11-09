@@ -108,3 +108,4 @@ docs/design/concepts/
 docs/design/imagegen-prompts.json
 .github/workflows/*.jks
 *.jks
+release-output/
