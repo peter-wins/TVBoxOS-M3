@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
 import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.chad.library.adapter.base.BaseViewHolder;
 import com.github.tvbox.osc.R;
@@ -87,6 +88,16 @@ public class GridAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHolder> {
             ivThumb.setImageDrawable(ImgUtil.createTextDrawable(item.name));
         }
         applyStyleToImage(ivThumb);
+    }
+
+    @Override
+    public void onViewRecycled(BaseViewHolder holder) {
+        ImageView thumb = holder.itemView.findViewById(R.id.ivThumb);
+        if (thumb != null) {
+            Glide.with(thumb.getContext().getApplicationContext()).clear(thumb);
+            thumb.setImageDrawable(null);
+        }
+        super.onViewRecycled(holder);
     }
 
     private void applyStyleToImage(final ImageView ivThumb) {

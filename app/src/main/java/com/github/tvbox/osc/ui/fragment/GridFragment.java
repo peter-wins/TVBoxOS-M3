@@ -2,6 +2,7 @@ package com.github.tvbox.osc.ui.fragment;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -11,11 +12,13 @@ import android.view.animation.BounceInterpolator;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
@@ -46,8 +49,11 @@ import java.util.List;
 import java.util.Stack;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import me.jessyan.autosize.utils.AutoSizeUtils;
 
 import org.greenrobot.eventbus.EventBus;
 import org.json.JSONException;
@@ -61,9 +67,10 @@ import org.json.JSONObject;
 public class GridFragment extends BaseLazyFragment {
     private MovieSort.SortData sortData = null;
     private TvRecyclerView mGridView;
-    // 方案A：沉浸式背景，跟随焦点卡片切换
-    private android.widget.ImageView ivBackdrop;
-    private String lastBackdropUrl = null;
+    private ImageView ivBackdrop;
+    private boolean backdropEnabled;
+    private String lastBackdropUrl;
+    private Runnable pendingBackdrop;
     private SourceViewModel sourceViewModel;
     private GridFilterDialog gridFilterDialog;
     private GridAdapter gridAdapter;
@@ -71,9 +78,12 @@ public class GridFragment extends BaseLazyFragment {
     private int maxPage = 1;
     private boolean isLoad = false;
     private boolean isRequesting = false;
+    private MutableLiveData<AbsXml> pendingList;
     private boolean hasActionItems = false;
     private boolean isTop = true;
-    private View focusedView = null;
+    private int selectedPosition = RecyclerView.NO_POSITION;
+    private Parcelable recycledLayout;
+    private final GridAdapter emptyGridAdapter = new GridAdapter(false, null);
     private float pullRefreshStartX;
     private float pullRefreshStartY;
     private boolean pullRefreshStartAtTop = false;
@@ -89,7 +99,9 @@ public class GridFragment extends BaseLazyFragment {
         public int maxPage = 1;
         public boolean isLoad = false;
         public boolean hasActionItems = false;
-        public View focusedView= null;
+        public String sortFlag;
+        public int selectedPosition;
+        public Parcelable layoutState;
     }
     Stack<GridInfo> mGrids = new Stack<GridInfo>(); //ui栈
 
@@ -124,6 +136,7 @@ public class GridFragment extends BaseLazyFragment {
     }
 
     private void changeView(String id,Boolean isFolder){
+        saveCurrentView();
         if(isFolder){
             this.sortData.flag =style==null?"1":"2"; // 修改sortData.flag
         }else {
@@ -152,33 +165,41 @@ public class GridFragment extends BaseLazyFragment {
         info.maxPage = this.maxPage;
         info.isLoad = this.isLoad;
         info.hasActionItems = this.hasActionItems;
-        info.focusedView = this.focusedView;
+        if (isRequesting && page > 1) gridAdapter.loadMoreComplete();
+        info.sortFlag = sortData.flag;
+        info.selectedPosition = selectedPosition;
+        recycleGridItems();
+        info.layoutState = recycledLayout;
         this.mGrids.push(info);
     }
     // 丢弃当前页面，将页面还原成上一个保存的页面
     public boolean restoreView(){
         if(mGrids.empty()) return false;
+        cancelListObservation();
         this.showSuccess();
+        recycleGridItems();
         ((ViewGroup) mGridView.getParent()).removeView(this.mGridView); // 重父窗口移除当前控件
         GridInfo info = mGrids.pop();// 还原上次保存的控件
         this.sortData.id = info.sortID;
+        this.sortData.flag = info.sortFlag;
         this.mGridView = info.mGridView;
         this.gridAdapter = info.gridAdapter;
+        this.style = gridAdapter.style;
         this.page = info.page;
         this.maxPage = info.maxPage;
         this.isLoad = info.isLoad;
         this.hasActionItems = info.hasActionItems;
-        this.focusedView = info.focusedView;
-        this.mGridView.setVisibility(View.VISIBLE);
-//        if(this.focusedView != null){ this.focusedView.requestFocus(); }
-        if(mGridView != null) mGridView.requestFocus();
+        selectedPosition = info.selectedPosition;
+        recycledLayout = info.layoutState;
+        mGridView.setVisibility(View.VISIBLE);
+        restoreGridItems();
+        mGridView.requestFocus();
         return true;
     }
 
     private ImgUtil.Style style;
     // 更改当前页面
     private void createView() {
-        this.saveCurrentView(); // 保存当前页面
         if(mGridView == null){ // 从layout中拿view
             mGridView = findViewById(R.id.mGridView);
             ivBackdrop = findViewById(R.id.ivBackdrop);
@@ -193,6 +214,8 @@ public class GridFragment extends BaseLazyFragment {
             mGridView = v3;
             mGridView.setVisibility(View.VISIBLE);
         }
+        selectedPosition = RecyclerView.NO_POSITION;
+        recycledLayout = null;
         mGridView.setHasFixedSize(true);
         style=ImgUtil.initStyle();
         gridAdapter = new GridAdapter(isFolederMode(), style);
@@ -222,7 +245,7 @@ public class GridFragment extends BaseLazyFragment {
             @Override
             public void onLoadMoreRequested() {
                 gridAdapter.setEnableLoadMore(true);
-                sourceViewModel.getList(sortData, page);
+                requestList();
             }
         }, mGridView);
         mGridView.setOnItemListener(new TvRecyclerView.OnItemListener() {
@@ -233,8 +256,8 @@ public class GridFragment extends BaseLazyFragment {
 
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
+                selectedPosition = position;
                 itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
-                // 方案A：背景跟随焦点切换
                 updateBackdrop(position);
             }
 
@@ -243,7 +266,6 @@ public class GridFragment extends BaseLazyFragment {
 
             }
         });
-        updateBackdrop(0);
 
         mGridView.setOnInBorderKeyEventListener(new TvRecyclerView.OnInBorderKeyEventListener() {
             @Override
@@ -268,7 +290,7 @@ public class GridFragment extends BaseLazyFragment {
                     bundle.putString("sourceKey", video.sourceKey);
                     bundle.putString("title", video.name);
                     if( video.tag !=null && (video.tag.equals("folder") || video.tag.equals("cover"))){
-                        focusedView = view;
+                        selectedPosition = position;
                         if(("12".indexOf(getUITag()) != -1)){
                             changeView(video.id,video.tag.equals("folder"));
                         }else {
@@ -395,42 +417,6 @@ public class GridFragment extends BaseLazyFragment {
     private void initViewModel() {
         if(sourceViewModel != null) { return;}
         sourceViewModel = new ViewModelProvider(this).get(SourceViewModel.class);
-        sourceViewModel.listResult.observe(this, new Observer<AbsXml>() {
-            @Override
-            public void onChanged(AbsXml absXml) {
-                isRequesting = false;
-                if (absXml != null && absXml.movie != null && absXml.movie.videoList != null && absXml.movie.videoList.size() > 0) {
-                    if (page == 1) {
-                        showSuccess();
-                        isLoad = true;
-                        hasActionItems = hasActionVideo(absXml.movie.videoList);
-                        gridAdapter.setNewData(absXml.movie.videoList);
-                    } else {
-                        hasActionItems = hasActionItems || hasActionVideo(absXml.movie.videoList);
-                        gridAdapter.addData(absXml.movie.videoList);
-                    }
-                    page++;
-                    maxPage = absXml.movie.pagecount;
-                    if (maxPage>0 && page > maxPage) {
-                        gridAdapter.loadMoreEnd();
-                        gridAdapter.setEnableLoadMore(false);
-                        if(page>2)Toast.makeText(getContext(), "没有更多了", Toast.LENGTH_SHORT).show();
-                    }else {
-                        gridAdapter.loadMoreComplete();
-                        gridAdapter.setEnableLoadMore(true);
-                    }
-                } else {
-                    if (page == 1) {
-                        hasActionItems = false;
-                        showEmpty();
-                    } else if(page > 2){// 只有一页数据时不提示
-                        Toast.makeText(getContext(), "没有更多了", Toast.LENGTH_SHORT).show();
-                    }
-                    gridAdapter.loadMoreEnd();
-                    gridAdapter.setEnableLoadMore(false);
-                }
-            }
-        });
         sourceViewModel.actionResult.observe(this, new Observer<JSONObject>() {
             @Override
             public void onChanged(JSONObject jsonObject) {
@@ -442,6 +428,56 @@ public class GridFragment extends BaseLazyFragment {
                 }
             }
         });
+    }
+
+    private void requestList() {
+        cancelListObservation();
+        isRequesting = true;
+        pendingList = new MutableLiveData<>();
+        pendingList.observe(getViewLifecycleOwner(), this::onListResult);
+        sourceViewModel.getList(sortData, page, pendingList);
+    }
+
+    private void cancelListObservation() {
+        if (pendingList != null) {
+            pendingList.removeObservers(getViewLifecycleOwner());
+            pendingList = null;
+        }
+        isRequesting = false;
+    }
+
+    private void onListResult(AbsXml absXml) {
+        cancelListObservation();
+        if (absXml != null && absXml.movie != null && absXml.movie.videoList != null && absXml.movie.videoList.size() > 0) {
+            if (page == 1) {
+                showSuccess();
+                isLoad = true;
+                hasActionItems = hasActionVideo(absXml.movie.videoList);
+                gridAdapter.setNewData(absXml.movie.videoList);
+            } else {
+                hasActionItems = hasActionItems || hasActionVideo(absXml.movie.videoList);
+                gridAdapter.addData(absXml.movie.videoList);
+            }
+            page++;
+            maxPage = absXml.movie.pagecount;
+            if (maxPage>0 && page > maxPage) {
+                gridAdapter.loadMoreEnd();
+                gridAdapter.setEnableLoadMore(false);
+                if(page>2)Toast.makeText(getContext(), "没有更多了", Toast.LENGTH_SHORT).show();
+            }else {
+                gridAdapter.loadMoreComplete();
+                gridAdapter.setEnableLoadMore(true);
+            }
+        } else {
+            if (page == 1) {
+                hasActionItems = false;
+                showEmpty();
+            } else if(page > 2){// 只有一页数据时不提示
+                Toast.makeText(getContext(), "没有更多了", Toast.LENGTH_SHORT).show();
+            }
+            gridAdapter.loadMoreEnd();
+            gridAdapter.setEnableLoadMore(false);
+        }
     }
 
     public boolean isLoad() {
@@ -459,7 +495,7 @@ public class GridFragment extends BaseLazyFragment {
         hasActionItems = false;
         scrollTop();
         toggleFilterColor();
-        sourceViewModel.getList(sortData, page);
+        requestList();
     }
 
     private boolean hasActionVideo(List<Movie.Video> videos) {
@@ -487,20 +523,76 @@ public class GridFragment extends BaseLazyFragment {
         mGridView.scrollToPosition(0);
     }
 
-    // 方案A：更新沉浸式背景，跟随焦点卡片
-    private void updateBackdrop(int position) {
-        if (ivBackdrop == null) return;
-        try {
-            if (gridAdapter == null || position < 0 || position >= gridAdapter.getData().size()) return;
-            com.github.tvbox.osc.bean.Movie.Video video = gridAdapter.getData().get(position);
-            if (video == null || video.pic == null || video.pic.isEmpty()) return;
-            if (video.pic.equals(lastBackdropUrl)) return;
-            lastBackdropUrl = video.pic;
-            ivBackdrop.setAlpha(0f);
-            com.github.tvbox.osc.util.ImgUtil.load(video.pic, ivBackdrop, 0, 0, 0);
-            ivBackdrop.animate().alpha(0.7f).setDuration(320).start();
-        } catch (Throwable ignored) {
+    public void recycleGridItems() {
+        if (mGridView == null || mGridView.getAdapter() != gridAdapter || gridAdapter == null) return;
+        RecyclerView.LayoutManager layout = mGridView.getLayoutManager();
+        recycledLayout = layout == null ? null : layout.onSaveInstanceState();
+        mGridView.setAdapter(emptyGridAdapter);
+    }
+
+    private void restoreGridItems() {
+        if (gridAdapter == null || mGridView.getAdapter() != emptyGridAdapter) return;
+        mGridView.setAdapter(gridAdapter);
+        if (selectedPosition >= 0 && selectedPosition < gridAdapter.getItemCount()) {
+            mGridView.setSelectedPosition(selectedPosition);
         }
+        RecyclerView.LayoutManager layout = mGridView.getLayoutManager();
+        if (layout != null && recycledLayout != null) layout.onRestoreInstanceState(recycledLayout);
+        recycledLayout = null;
+    }
+
+    @Override
+    protected void onFragmentResume() {
+        super.onFragmentResume();
+        restoreGridItems();
+        backdropEnabled = Hawk.get(HawkConfig.CATEGORY_POSTER_BACKDROP, false);
+        if (ivBackdrop == null) return;
+        int visibility = backdropEnabled ? View.VISIBLE : View.GONE;
+        ivBackdrop.setVisibility(visibility);
+        findViewById(R.id.vBackdropMask).setVisibility(visibility);
+        View focused = mGridView.findFocus();
+        View item = focused == null ? null : mGridView.findContainingItemView(focused);
+        if (item != null) updateBackdrop(mGridView.getChildAdapterPosition(item));
+    }
+
+    @Override
+    protected void onFragmentPause() {
+        cancelBackdrop();
+        if (ivBackdrop != null && lastBackdropUrl != null) {
+            Glide.with(ivBackdrop.getContext().getApplicationContext()).clear(ivBackdrop);
+            ivBackdrop.setImageDrawable(null);
+            lastBackdropUrl = null;
+        }
+        super.onFragmentPause();
+    }
+
+    private void cancelBackdrop() {
+        if (pendingBackdrop != null) {
+            ivBackdrop.removeCallbacks(pendingBackdrop);
+            pendingBackdrop = null;
+        }
+    }
+
+    private void updateBackdrop(int position) {
+        if (!backdropEnabled || !currentVisibleState || ivBackdrop == null) return;
+        cancelBackdrop();
+        if (gridAdapter == null || position < 0 || position >= gridAdapter.getData().size()) return;
+        Movie.Video video = gridAdapter.getItem(position);
+        String picture = video == null ? null : video.pic;
+        if (android.text.TextUtils.equals(picture, lastBackdropUrl)) return;
+        pendingBackdrop = () -> {
+            pendingBackdrop = null;
+            if (android.text.TextUtils.isEmpty(picture)) {
+                Glide.with(ivBackdrop.getContext().getApplicationContext()).clear(ivBackdrop);
+                ivBackdrop.setImageDrawable(null);
+                lastBackdropUrl = null;
+                return;
+            }
+            lastBackdropUrl = picture;
+            ImgUtil.load(picture, ivBackdrop, 1, AutoSizeUtils.mm2px(mContext, 360),
+                    AutoSizeUtils.mm2px(mContext, 202));
+        };
+        ivBackdrop.postDelayed(pendingBackdrop, 250);
     }
 
     public void showFilter() {

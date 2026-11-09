@@ -27,7 +27,7 @@ public class HawkConfig {
     public static final String PLAY_TIME_STEP = "play_time_step"; //0 texture 2
     public static final String DOH_URL = "doh_url";
     public static final int DEFAULT_HOME_REC = 1;
-    public static final String HOME_REC = "home_rec"; // 0 豆瓣热播 1 数据源推荐 2 历史
+    public static final String HOME_REC = "home_rec"; // 0 豆瓣热播，1 站点推荐优先，2 旧版观看历史
     public static final String HISTORY_NUM = "history_num";
     public static final String HISTORY_MERGE = "history_merge";
     public static final String SEARCH_VIEW = "search_view"; // 0 列表 1 缩略图
@@ -46,7 +46,7 @@ public class HawkConfig {
     public static final String SUBTITLE_EXO_SCALE = "subtitle_exo_scale";
     public static final String SUBTITLE_EXO_POSITION = "subtitle_exo_position";
     public static final String SOURCES_FOR_SEARCH = "checked_sources_for_search";
-    public static final String HOME_REC_STYLE = "home_rec_style";
+    public static final String CATEGORY_POSTER_BACKDROP = "category_poster_backdrop";
     public static final String NOW_DATE = "now_date"; //当前日期
     public static final String REMOTE_TVBOX = "remote_tvbox_host";
     public static final String IJK_CACHE_PLAY = "ijk_cache_play";

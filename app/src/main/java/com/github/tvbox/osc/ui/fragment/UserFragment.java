@@ -217,7 +217,6 @@ public class UserFragment extends BaseLazyFragment {
             public void onItemClick(TvRecyclerView parent, View view, int position) {}
         });
         recommendations.clear();
-        if (homeSourceRec != null) recommendations.addAll(homeSourceRec);
         showShelf(showingHistory);
         loadRecommendations();
     }
@@ -255,7 +254,7 @@ public class UserFragment extends BaseLazyFragment {
                 }
                 if (!shelfChosen) {
                     shelfChosen = true;
-                    showShelf(!history.isEmpty());
+                    showShelf(!history.isEmpty() || Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 2);
                 } else if (showingHistory) {
                     showShelf(true);
                 }
@@ -348,7 +347,8 @@ public class UserFragment extends BaseLazyFragment {
 
     private void loadRecommendations() {
         if (recommendationsLoading || destroyed) return;
-        if (homeSourceRec != null && !homeSourceRec.isEmpty()) {
+        if (Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) != 0
+                && homeSourceRec != null && !homeSourceRec.isEmpty()) {
             recommendations.clear();
             recommendations.addAll(homeSourceRec);
             if (!showingHistory) showShelf(false);
@@ -508,7 +508,7 @@ public class UserFragment extends BaseLazyFragment {
             backdrop.setImageDrawable(null);
             return;
         }
-        // Preserve the complete portrait; a low-opacity copy only supplies background colour.
+        // Keep the portrait sharp and use a smaller copy behind the hero content.
         ImgUtil.load(picture, heroPoster, AutoSizeUtils.mm2px(mContext, 10),
                 getResources().getDimensionPixelSize(R.dimen.home_hero_poster_width),
                 getResources().getDimensionPixelSize(R.dimen.home_hero_poster_height), video.name, ImageView.ScaleType.FIT_CENTER);

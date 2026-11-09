@@ -8,6 +8,7 @@ import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.fragment.app.FragmentTransaction;
 
 import com.github.tvbox.osc.base.BaseLazyFragment;
+import com.github.tvbox.osc.ui.fragment.GridFragment;
 
 import java.util.List;
 
@@ -74,8 +75,10 @@ public class HomePageAdapter extends FragmentPagerAdapter {
 
     @Override
     public void destroyItem(ViewGroup container, int position, Object object) {
-        // super.destroyItem(container, position, object);
         Fragment fragment = (Fragment) object;
+        if (fragment instanceof GridFragment) {
+            ((GridFragment) fragment).recycleGridItems();
+        }
         fragmentManager.beginTransaction().hide(fragment).commitAllowingStateLoss();
     }
 }

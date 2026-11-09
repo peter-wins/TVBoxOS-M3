@@ -95,7 +95,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
     private TextView tvFastSearchText;
     private TextView tvm3u8AdText;
     private TextView tvAutoSwitchLineText;
-    private TextView tvRecStyleText;
+    private TextView tvCategoryBackdrop;
     private TextView tvIjkCachePlay;
     private TextView tvHomeDefaultShow;
     private ApiDialog apiDialog;
@@ -128,8 +128,8 @@ public class ModelSettingFragment extends BaseLazyFragment {
         refreshDanmuApiText();
         tvAutoSwitchLineText = findViewById(R.id.autoSwitchLineText);
         setSwitch(tvAutoSwitchLineText, Hawk.get(HawkConfig.AUTO_SWITCH_LINE, true));
-        tvRecStyleText = findViewById(R.id.showRecStyleText);
-        setSwitch(tvRecStyleText, Hawk.get(HawkConfig.HOME_REC_STYLE, false), "是", "否");
+        tvCategoryBackdrop = findViewById(R.id.showCategoryBackdrop);
+        setSwitch(tvCategoryBackdrop, Hawk.get(HawkConfig.CATEGORY_POSTER_BACKDROP, false));
         tvShowPreviewText = findViewById(R.id.showPreviewText);
         setSwitch(tvShowPreviewText, Hawk.get(HawkConfig.SHOW_PREVIEW, true));
         tvDebugOpen = findViewById(R.id.tvDebugOpen);
@@ -611,13 +611,12 @@ public class ModelSettingFragment extends BaseLazyFragment {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
-                int defaultPos = Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC);
+                int defaultPos = Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 0 ? 0 : 1;
                 ArrayList<Integer> types = new ArrayList<>();
                 types.add(0);
                 types.add(1);
-                types.add(2);
                 SelectDialog<Integer> dialog = new SelectDialog<>(mActivity);
-                dialog.setTip("请选择首页列表数据");
+                dialog.setTip("请选择首页推荐内容");
                 dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<Integer>() {
                     @Override
                     public void click(Integer value, int pos) {
@@ -781,13 +780,13 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 setSwitch(tvAutoSwitchLineText, enable);
             }
         });
-        findViewById(R.id.llHomeRecStyle).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.llCategoryBackdrop).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
-                boolean multiLine = !Hawk.get(HawkConfig.HOME_REC_STYLE, false);
-                Hawk.put(HawkConfig.HOME_REC_STYLE, multiLine);
-                setSwitch(tvRecStyleText, multiLine, "是", "否");
+                boolean enabled = !Hawk.get(HawkConfig.CATEGORY_POSTER_BACKDROP, false);
+                Hawk.put(HawkConfig.CATEGORY_POSTER_BACKDROP, enabled);
+                setSwitch(tvCategoryBackdrop, enabled);
             }
         });
 
@@ -1116,13 +1115,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
     }
 
     String getHomeRecName(int type) {
-        if (type == 1) {
-            return "站点推荐";
-        } else if (type == 2) {
-            return "观看历史";
-        } else {
-            return "豆瓣热播";
-        }
+        return type == 0 ? "豆瓣热播" : "站点推荐优先";
     }
 
     String getSearchView(int type) {

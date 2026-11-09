@@ -68,6 +68,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import me.jessyan.autosize.utils.AutoSizeUtils;
 
@@ -313,13 +314,21 @@ public class HomeActivity extends BaseActivity {
                 homeSortLoading = false;
                 loadingSourceKey = null;
                 previousHomeSource = null;
+                homeReadyForWarmup = true;
+                if (!useCacheConfig && !searchWarmupComplete) LOG.i("home ready for search warmup");
+                scheduleSearchWarmup();
             }
         });
     }
 
     private boolean dataInitOk = false;
     private boolean jarInitOk = false;
-    private boolean searchSpiderWarmStarted = false;
+    private static final long SEARCH_WARMUP_IDLE_MS = 1500;
+    private boolean homeReadyForWarmup;
+    private boolean homeResumed;
+    private boolean searchWarmupComplete;
+    private AtomicBoolean searchWarmupBatch;
+    private final Runnable startSearchWarmup = this::runSearchWarmup;
     private TipDialog mConfigErrorDialog;
 
     private void initData() {
@@ -333,8 +342,6 @@ public class HomeActivity extends BaseActivity {
             if (!useCacheConfig && Hawk.get(HawkConfig.DEFAULT_LOAD_LIVE, false)) {
                 jumpActivity(LivePlayActivity.class);
             }
-            //爬虫预热 仅首次加载
-            if(!useCacheConfig)warmSearchSpidersOnce();
             return;
         }
         tvNameAnimation();
@@ -471,13 +478,36 @@ public class HomeActivity extends BaseActivity {
         }, this);
     }
 
-    private void warmSearchSpidersOnce() {
-        if (searchSpiderWarmStarted) return;
-        searchSpiderWarmStarted = true;
-        ApiConfig.get().warmSearchSpiders();
+    private boolean canWarmSearch() {
+        return !useCacheConfig && homeReadyForWarmup && homeResumed && hasWindowFocus()
+                && !searchWarmupComplete && !isActivityUnavailable();
+    }
+
+    private void scheduleSearchWarmup() {
+        mHandler.removeCallbacks(startSearchWarmup);
+        if (canWarmSearch() && searchWarmupBatch == null) {
+            mHandler.postDelayed(startSearchWarmup, SEARCH_WARMUP_IDLE_MS);
+        }
+    }
+
+    private void runSearchWarmup() {
+        if (!canWarmSearch() || searchWarmupBatch != null) return;
+        searchWarmupBatch = new AtomicBoolean();
+        ApiConfig.get().warmSearchSpiderBatch(searchWarmupBatch, hasMore -> {
+            searchWarmupBatch = null;
+            searchWarmupComplete = !hasMore;
+            scheduleSearchWarmup();
+        });
+    }
+
+    private void pauseSearchWarmup() {
+        mHandler.removeCallbacks(startSearchWarmup);
+        if (searchWarmupBatch != null) searchWarmupBatch.set(true);
     }
 
     private void loadHomeSort(boolean keepCurrentContent) {
+        homeReadyForWarmup = false;
+        pauseSearchWarmup();
         SourceBean home = ApiConfig.get().getHomeSourceBean();
         homeSortLoading = keepCurrentContent;
         if (keepCurrentContent && home != null && home.getName() != null && !home.getName().isEmpty()) {
@@ -639,6 +669,8 @@ public class HomeActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        homeResumed = true;
+        scheduleSearchWarmup();
         refreshTopInfoTextSize();
         mHandler.removeCallbacks(refreshTopInfoTextSizeRunnable);
         mHandler.postDelayed(refreshTopInfoTextSizeRunnable, 350);
@@ -650,10 +682,19 @@ public class HomeActivity extends BaseActivity {
 
     @Override
     protected void onPause() {
+        homeResumed = false;
+        pauseSearchWarmup();
         super.onPause();
         mHandler.removeCallbacks(refreshTopInfoTextSizeRunnable);
         mHandler.removeCallbacks(refreshTopLayoutRunnable);
         mHandler.removeCallbacks(mRunnable);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) scheduleSearchWarmup();
+        else pauseSearchWarmup();
     }
 
     private void refreshTopInfoTextSize() {
@@ -720,6 +761,10 @@ public class HomeActivity extends BaseActivity {
     private static final long LONG_PRESS_THRESHOLD = 2000; // 设置长按的阈值，单位是毫秒
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN && !searchWarmupComplete) {
+            pauseSearchWarmup();
+            scheduleSearchWarmup();
+        }
         if (topHide < 0)
             return false;
         int keyCode = event.getKeyCode();
