@@ -1448,6 +1448,11 @@ public class SourceViewModel extends ViewModel {
 
     private static final ConcurrentHashMap<String, String> extendCache = new ConcurrentHashMap<>();
 
+    /** Called only by the home metadata worker; never resolve an extension on the UI thread. */
+    public String resolveHomeDetailExtension(String extension) {
+        return getFixUrl(extension, 4);
+    }
+
     private String getFixUrl(final String extend) {
         return getFixUrl(extend, 20);
     }

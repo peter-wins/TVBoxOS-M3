@@ -19,6 +19,7 @@ public class SortAdapter extends BaseQuickAdapter<MovieSort.SortData, BaseViewHo
 
     @Override
     protected void convert(BaseViewHolder helper, MovieSort.SortData item) {
-        helper.setText(R.id.tvTitle, item.name);
+        helper.setText(R.id.tvTitle, "my0".equals(item.id) ? "首页" : item.name);
+        helper.itemView.setSelected(item.select);
     }
 }

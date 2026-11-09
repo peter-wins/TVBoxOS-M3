@@ -91,6 +91,9 @@ import android.graphics.Paint;
 
 public class DetailActivity extends BaseActivity {
     private static final String STATE_FULL_WINDOWS = "detail_full_windows";
+    public static final String EXTRA_HOME_AUTO_PLAY = "home_auto_play";
+    private static final String STATE_HOME_AUTO_PLAY_PENDING = "home_auto_play_pending";
+    private boolean homeAutoPlayPending;
     private static final String DETAIL_FALLBACK_SEARCH_TAG = "detail_fallback_search";
     public static final String EXTRA_DETAIL_FALLBACK_CANDIDATES = "detailFallbackCandidates";
     private static final int DETAIL_FALLBACK_MAX_SEARCH = 20;
@@ -157,6 +160,9 @@ public class DetailActivity extends BaseActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        homeAutoPlayPending = savedInstanceState == null
+                ? getIntent().getBooleanExtra(EXTRA_HOME_AUTO_PLAY, false)
+                : savedInstanceState.getBoolean(STATE_HOME_AUTO_PLAY_PENDING, false);
         if (savedInstanceState != null) {
             fullWindows = savedInstanceState.getBoolean(STATE_FULL_WINDOWS, false);
         }
@@ -946,6 +952,10 @@ public class DetailActivity extends BaseActivity {
                         restoreDetailFallbackEpisode();
                         resetDetailFallback();
                         List<VodInfo.VodSeries> playingSeriesList = vodInfo.seriesMap.get(vodInfo.playFlag);
+                        if (playingSeriesList == null || playingSeriesList.isEmpty()) {
+                            handleNoPlayableDetail();
+                            return;
+                        }
                         vodInfo.playIndex = Math.max(0, Math.min(vodInfo.playIndex, playingSeriesList.size() - 1));
 
                         int flagScrollTo = 0;
@@ -963,11 +973,18 @@ public class DetailActivity extends BaseActivity {
                         mGridViewFlag.scrollToPosition(flagScrollTo);
 
                         refreshList();
+                        // Consume only after playable data and the saved episode have been restored.
+                        boolean playFromHome = homeAutoPlayPending;
+                        homeAutoPlayPending = false;
+                        getIntent().removeExtra(EXTRA_HOME_AUTO_PLAY);
                         if (showPreview) {
+                            if (playFromHome) enterFullPreview();
                             jumpToPlay();
                             llPlayerFragmentContainer.setVisibility(View.VISIBLE);
-                            llPlayerFragmentContainerBlock.setVisibility(View.VISIBLE);
+                            llPlayerFragmentContainerBlock.setVisibility(fullWindows ? View.GONE : View.VISIBLE);
                             toggleSubtitleTextSize();
+                        } else if (playFromHome) {
+                            jumpToPlay();
                         }
                         // startQuickSearch();
                     } else {
@@ -1913,6 +1930,7 @@ public class DetailActivity extends BaseActivity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putBoolean(STATE_FULL_WINDOWS, fullWindows);
+        outState.putBoolean(STATE_HOME_AUTO_PLAY_PENDING, homeAutoPlayPending);
         super.onSaveInstanceState(outState);
     }
 

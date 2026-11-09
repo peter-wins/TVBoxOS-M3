@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="@dimen/vs_160"
+    android:layout_width="@dimen/home_poster_width"
     android:layout_height="wrap_content"
     android:clipChildren="false"
     android:clipToPadding="false"
@@ -9,8 +9,9 @@
 
     <FrameLayout
         android:id="@+id/mItemFrame"
-        android:layout_width="@dimen/vs_160"
-        android:layout_height="@dimen/vs_214"
+        android:layout_width="@dimen/home_poster_width"
+        android:layout_height="@dimen/home_poster_height"
+        android:duplicateParentState="true"
         android:background="@drawable/bg_home_poster_card"
         android:padding="@dimen/vs_2">
 
@@ -18,7 +19,7 @@
             android:id="@+id/ivThumb"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="fitXY" />
+            android:scaleType="centerCrop" />
 
         <!-- 左上角进度/评分徽章 -->
         <TextView
@@ -78,21 +79,25 @@
 
     <TextView
         android:id="@+id/tvName"
-        android:layout_width="@dimen/vs_160"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/vs_10"
+        android:layout_width="@dimen/home_poster_width"
+        android:layout_height="@dimen/vs_24"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
+        android:layout_marginTop="@dimen/vs_8"
         android:ellipsize="end"
         android:maxLines="1"
         android:singleLine="true"
         android:text="Title"
         android:textColor="@color/home_text_primary"
-        android:textSize="@dimen/ts_16"
+        android:textSize="@dimen/ts_18"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/tvInfo"
-        android:layout_width="@dimen/vs_160"
-        android:layout_height="wrap_content"
+        android:layout_width="@dimen/home_poster_width"
+        android:layout_height="@dimen/home_poster_meta_height"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
         android:layout_marginTop="@dimen/vs_4"
         android:ellipsize="end"
         android:maxLines="1"

@@ -2,7 +2,6 @@ package com.github.tvbox.osc.ui.adapter;
 
 import android.text.TextUtils;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -15,7 +14,6 @@ import com.github.tvbox.osc.bean.Movie;
 import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.ImgUtil;
-import com.orhanobut.hawk.Hawk;
 
 import java.util.ArrayList;
 
@@ -38,7 +36,7 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
     @Override
     protected void convert(BaseViewHolder helper, Movie.Video item) {
         FrameLayout tvDel = helper.getView(R.id.delFrameLayout);
-        tvDel.setVisibility(HawkConfig.hotVodDelete ? View.VISIBLE : View.GONE);
+        tvDel.setVisibility(historyMode && HawkConfig.hotVodDelete ? View.VISIBLE : View.GONE);
 
         TextView tvRate = helper.getView(R.id.tvRate);
         if (historyMode) {
@@ -56,7 +54,11 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
             tvNote.setText(item.note);
             tvNote.setVisibility(View.VISIBLE);
         }
-        helper.setText(R.id.tvName, item.name);
+        // Fixed text slots and explicit pixels keep early-bound cards readable after AutoSize settles.
+        TextView title = helper.getView(R.id.tvName);
+        title.setText(item.name);
+        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
+                mContext.getResources().getDimension(R.dimen.ts_18));
 
         TextView tvInfo = helper.getView(R.id.tvInfo);
         StringBuilder info = new StringBuilder();
@@ -65,7 +67,9 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
         if (item.year > 0) appendInfo(info, String.valueOf(item.year));
         String infoText = info.toString();
         tvInfo.setText(infoText);
-        tvInfo.setVisibility(infoText.isEmpty() ? View.GONE : View.VISIBLE);
+        tvInfo.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
+                mContext.getResources().getDimension(R.dimen.ts_14));
+        tvInfo.setVisibility(infoText.isEmpty() ? View.INVISIBLE : View.VISIBLE);
 
         ImageView ivThumb = helper.getView(R.id.ivThumb);
         String pic = item.pic == null ? "" : item.pic.trim();
@@ -74,7 +78,8 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
                 ivThumb.setImageBitmap(ImgUtil.decodeBase64ToBitmap(pic));
             } else {
                 ImgUtil.load(pic, ivThumb, AutoSizeUtils.mm2px(mContext, 8),
-                        AutoSizeUtils.mm2px(mContext, 160), AutoSizeUtils.mm2px(mContext, 214), item.name);
+                        mContext.getResources().getDimensionPixelSize(R.dimen.home_poster_width),
+                        mContext.getResources().getDimensionPixelSize(R.dimen.home_poster_height), item.name);
             }
         } else {
             ivThumb.setImageDrawable(ImgUtil.createTextDrawable(item.name));

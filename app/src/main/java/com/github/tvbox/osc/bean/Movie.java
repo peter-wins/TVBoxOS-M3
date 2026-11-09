@@ -62,6 +62,8 @@ public class Movie implements Serializable {
         @XStreamAlias("des")
         public String des;// <![CDATA[权来]
         public String sourceKey;
+        // Optional identity for description enrichment of the existing public hot feed.
+        public String doubanId;
         @XStreamAlias("tag")
         public String tag;
         @XStreamAlias("action")
