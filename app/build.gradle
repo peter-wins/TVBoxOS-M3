@@ -2,6 +2,15 @@ apply plugin: 'com.android.application'
 
 android {
     namespace "com.github.tvbox.osc"
+
+    signingConfigs {
+        release {
+            storeFile file("../tvbox-release.jks")
+            storePassword "tvbox2026"
+            keyAlias "tvbox"
+            keyPassword "tvbox2026"
+        }
+    }
     compileSdkVersion 35
 
     defaultConfig {
@@ -21,6 +30,8 @@ android {
     packagingOptions {
         exclude 'META-INF/DEPENDENCIES'
         exclude 'META-INF/beans.xml'
+        // xstream 传递引入的 xpp3 实现与 Android 内置 XmlPullParser 冲突，排除掉
+        exclude 'META-INF/services/org.xmlpull.v1.XmlPullParserFactory'
     }
 
     flavorDimensions "mode"
@@ -103,6 +114,7 @@ android {
         }
         release {
             minifyEnabled true
+            signingConfig signingConfigs.release
         }
     }
 
@@ -176,6 +188,9 @@ dependencies {
     implementation 'me.jessyan:autosize:1.2.1'
     implementation('com.thoughtworks.xstream:xstream:1.4.15') {
         exclude group: 'xmlpull', module: 'xmlpull'
+        // 代码使用 DomDriver，不需要 xpp3；xpp3_min 自带 org.xmlpull.v1 实现，
+        // 会与 Android 内置 XmlPullParser 产生 R8 冲突（Library class implements program class）
+        exclude group: 'xpp3', module: 'xpp3_min'
     }
     implementation 'org.greenrobot:eventbus:3.2.0'
     implementation 'com.orhanobut:hawk:2.0.1'

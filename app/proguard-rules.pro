@@ -59,7 +59,22 @@
 -keep interface androidx.** { *; }
 #-keep public class * extends androidx.**
 
--keep class org.xmlpull.v1.** {*;}
+# xstream 传递引入的 xpp3_min 带有 org.xmlpull.v1 实现类，
+# 与 Android 平台内置的 XmlPullParser 冲突：
+#   "Library class android.content.res.XmlResourceParser implements program class org.xmlpull.v1.XmlPullParser"
+# 这里只保留 xstream 需要的类，其余交给平台，避免被 R8 当成 program class。
+-keep class org.xmlpull.v1.XmlPullParserException { *; }
+-dontwarn org.xmlpull.v1.**
+-dontwarn xpp3.**
+
+# xstream 的可选驱动（BEA StAX、SJSXP 等）在本项目未使用，忽略其缺失引用
+-dontwarn com.bea.xml.stream.**
+-dontwarn javax.xml.stream.**
+-dontwarn org.codehaus.jettison.**
+-dontwarn org.joda.time.**
+-dontwarn net.sf.cglib.**
+-dontwarn org.apache.commons.**
+-keep class com.thoughtworks.xstream.** { *; }
 
 -dontwarn org.fourthline.cling.**
 -keep class org.fourthline.cling.** { *; }
@@ -248,3 +263,101 @@
 #-dontwarn com.undcover.freedom.pyramid.**
 #-keep public class com.chaquo.python.** { *; }
 #-dontwarn com.chaquo.python.**
+-dontwarn com.ctc.wstx.stax.WstxInputFactory
+-dontwarn com.ctc.wstx.stax.WstxOutputFactory
+-dontwarn java.awt.BorderLayout
+-dontwarn java.awt.Color
+-dontwarn java.awt.Component
+-dontwarn java.awt.Container
+-dontwarn java.awt.Dimension
+-dontwarn java.awt.Font
+-dontwarn java.awt.LayoutManager
+-dontwarn java.awt.Rectangle
+-dontwarn java.awt.Toolkit
+-dontwarn java.awt.Window
+-dontwarn java.awt.datatransfer.Clipboard
+-dontwarn java.awt.datatransfer.ClipboardOwner
+-dontwarn java.awt.datatransfer.StringSelection
+-dontwarn java.awt.datatransfer.Transferable
+-dontwarn java.awt.event.ActionEvent
+-dontwarn java.awt.event.ActionListener
+-dontwarn java.awt.event.ItemListener
+-dontwarn java.awt.event.WindowEvent
+-dontwarn java.awt.event.WindowListener
+-dontwarn java.beans.BeanInfo
+-dontwarn java.beans.IntrospectionException
+-dontwarn java.beans.Introspector
+-dontwarn java.beans.PropertyDescriptor
+-dontwarn java.beans.PropertyEditor
+-dontwarn javax.activation.ActivationDataFlavor
+-dontwarn javax.swing.AbstractAction
+-dontwarn javax.swing.AbstractButton
+-dontwarn javax.swing.BorderFactory
+-dontwarn javax.swing.Box
+-dontwarn javax.swing.BoxLayout
+-dontwarn javax.swing.Icon
+-dontwarn javax.swing.ImageIcon
+-dontwarn javax.swing.JButton
+-dontwarn javax.swing.JCheckBox
+-dontwarn javax.swing.JComboBox
+-dontwarn javax.swing.JDialog
+-dontwarn javax.swing.JFrame
+-dontwarn javax.swing.JLabel
+-dontwarn javax.swing.JPanel
+-dontwarn javax.swing.JScrollPane
+-dontwarn javax.swing.JTable
+-dontwarn javax.swing.JToolBar
+-dontwarn javax.swing.ListSelectionModel
+-dontwarn javax.swing.SwingUtilities
+-dontwarn javax.swing.border.Border
+-dontwarn javax.swing.border.TitledBorder
+-dontwarn javax.swing.event.ListSelectionListener
+-dontwarn javax.swing.plaf.FontUIResource
+-dontwarn javax.swing.table.AbstractTableModel
+-dontwarn javax.swing.table.DefaultTableCellRenderer
+-dontwarn javax.swing.table.JTableHeader
+-dontwarn javax.swing.table.TableCellRenderer
+-dontwarn javax.swing.table.TableColumn
+-dontwarn javax.swing.table.TableColumnModel
+-dontwarn javax.swing.table.TableModel
+-dontwarn javax.xml.bind.DatatypeConverter
+-dontwarn nu.xom.Attribute
+-dontwarn nu.xom.Builder
+-dontwarn nu.xom.Document
+-dontwarn nu.xom.Element
+-dontwarn nu.xom.Elements
+-dontwarn nu.xom.Node
+-dontwarn nu.xom.ParentNode
+-dontwarn nu.xom.ParsingException
+-dontwarn nu.xom.Text
+-dontwarn nu.xom.ValidityException
+-dontwarn org.dom4j.Attribute
+-dontwarn org.dom4j.Branch
+-dontwarn org.dom4j.Document
+-dontwarn org.dom4j.DocumentException
+-dontwarn org.dom4j.DocumentFactory
+-dontwarn org.dom4j.Element
+-dontwarn org.dom4j.io.OutputFormat
+-dontwarn org.dom4j.io.SAXReader
+-dontwarn org.dom4j.io.XMLWriter
+-dontwarn org.dom4j.tree.DefaultElement
+-dontwarn org.jdom.Attribute
+-dontwarn org.jdom.Content
+-dontwarn org.jdom.DefaultJDOMFactory
+-dontwarn org.jdom.Document
+-dontwarn org.jdom.Element
+-dontwarn org.jdom.JDOMException
+-dontwarn org.jdom.JDOMFactory
+-dontwarn org.jdom.Text
+-dontwarn org.jdom.input.SAXBuilder
+-dontwarn org.jdom2.Attribute
+-dontwarn org.jdom2.Content
+-dontwarn org.jdom2.DefaultJDOMFactory
+-dontwarn org.jdom2.Document
+-dontwarn org.jdom2.Element
+-dontwarn org.jdom2.JDOMException
+-dontwarn org.jdom2.JDOMFactory
+-dontwarn org.jdom2.Text
+-dontwarn org.jdom2.input.SAXBuilder
+-dontwarn org.kxml2.io.KXmlParser
+-dontwarn org.xmlpull.mxp1.MXParser
