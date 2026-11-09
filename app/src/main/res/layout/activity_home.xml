@@ -1,110 +1,216 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
+    android:layout_height="match_parent"
+    android:background="@color/home_bg_deep">
     <LinearLayout
         android:id="@+id/topLayout"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/vs_75"
+        android:layout_height="@dimen/home_header_height"
+        android:orientation="vertical"
         android:background="@drawable/bg_home_top_scrim"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingLeft="@dimen/vs_40"
-        android:paddingRight="@dimen/vs_40"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
+        android:paddingLeft="@dimen/home_page_inset"
+        android:paddingRight="@dimen/home_page_inset"
         app:layout_constraintTop_toTopOf="parent">
-
-        <TextView
-            android:id="@+id/tvName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:focusable="false"
-            android:focusableInTouchMode="false"
-            android:gravity="center_vertical"
-            android:letterSpacing="0.06"
-            android:maxWidth="@dimen/vs_240"
-            android:maxLines="1"
-            android:singleLine="true"
-            android:text="@string/app_name"
-            android:textColor="@color/home_text_primary"
-            android:textSize="@dimen/ts_20"
-            android:textStyle="bold" />
-
-        <com.owen.tvrecyclerview.widget.TvRecyclerView
-            android:id="@+id/mGridView"
-            android:layout_width="@dimen/vs_0"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="@dimen/vs_35"
-            android:layout_marginRight="@dimen/vs_24"
-            android:layout_weight="1"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            app:tv_selectedItemIsCentered="true" />
-
         <LinearLayout
-            android:id="@+id/btnHomeSearch"
-            android:layout_width="wrap_content"
-            android:layout_height="@dimen/vs_35"
-            android:background="@drawable/bg_home_search_pill"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="58mm"
             android:orientation="horizontal"
-            android:paddingLeft="@dimen/vs_16"
-            android:paddingRight="@dimen/vs_16">
-
+            android:gravity="center_vertical">
             <ImageView
-                android:layout_width="@dimen/vs_20"
-                android:layout_height="@dimen/vs_20"
-                android:focusable="false"
-                android:src="@drawable/icon_search"
-                android:tint="@color/home_text_secondary" />
-
+                android:layout_width="@dimen/vs_28"
+                android:layout_height="@dimen/vs_28"
+                android:src="@drawable/ic_home_brand"
+                android:importantForAccessibility="no" />
             <TextView
+                android:id="@+id/tvName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="@dimen/vs_6"
-                android:focusable="false"
-                android:text="搜索影片"
+                android:layout_marginLeft="@dimen/vs_10"
+                android:text="TVBox"
+                android:textColor="@color/home_text_primary"
+                android:textSize="@dimen/ts_24"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/btnHomeSource"
+                style="@style/HomeActionText"
+                android:layout_width="@dimen/vs_240"
+                android:layout_marginLeft="@dimen/vs_24"
+                android:background="@drawable/bg_home_search_pill"
+                android:ellipsize="end"
+                android:drawableRight="@drawable/ic_home_chevron_down"
+                android:drawablePadding="@dimen/vs_8"
+                android:text="片源 · 选择片源" />
+            <Space android:layout_width="0mm" android:layout_height="1mm" android:layout_weight="1"/>
+            <LinearLayout
+                android:id="@+id/btnHomeSearch"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/vs_40"
+                android:layout_marginLeft="@dimen/vs_8"
+                android:paddingLeft="@dimen/vs_14"
+                android:paddingRight="@dimen/vs_14"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_home_search_pill"
+                android:focusable="true"
+                android:clickable="true">
+                <ImageView
+                    android:layout_width="@dimen/vs_20"
+                    android:layout_height="@dimen/vs_20"
+                    android:src="@drawable/icon_search"
+                    android:tint="@color/home_text_primary"
+                    android:importantForAccessibility="no" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/vs_8"
+                    android:text="搜索"
+                    android:textColor="@color/home_text_primary"
+                    android:textSize="@dimen/ts_18" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/btnHomeLive"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/vs_40"
+                android:layout_marginLeft="@dimen/vs_8"
+                android:paddingLeft="@dimen/vs_14"
+                android:paddingRight="@dimen/vs_14"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_home_tool"
+                android:focusable="true"
+                android:clickable="true">
+                <ImageView
+                    android:layout_width="@dimen/vs_20"
+                    android:layout_height="@dimen/vs_20"
+                    android:src="@drawable/icon_live"
+                    android:tint="@color/home_text_primary"
+                    android:importantForAccessibility="no" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/vs_8"
+                    android:text="直播"
+                    android:textColor="@color/home_text_primary"
+                    android:textSize="@dimen/ts_18" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/btnHomeCollect"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/vs_40"
+                android:layout_marginLeft="@dimen/vs_8"
+                android:paddingLeft="@dimen/vs_14"
+                android:paddingRight="@dimen/vs_14"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_home_tool"
+                android:focusable="true"
+                android:clickable="true">
+                <ImageView
+                    android:layout_width="@dimen/vs_20"
+                    android:layout_height="@dimen/vs_20"
+                    android:src="@drawable/icon_collect"
+                    android:tint="@color/home_text_primary"
+                    android:importantForAccessibility="no" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/vs_8"
+                    android:text="收藏"
+                    android:textColor="@color/home_text_primary"
+                    android:textSize="@dimen/ts_18" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/btnHomePush"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/vs_40"
+                android:layout_marginLeft="@dimen/vs_8"
+                android:paddingLeft="@dimen/vs_14"
+                android:paddingRight="@dimen/vs_14"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_home_tool"
+                android:focusable="true"
+                android:clickable="true">
+                <ImageView
+                    android:layout_width="@dimen/vs_20"
+                    android:layout_height="@dimen/vs_20"
+                    android:src="@drawable/icon_push"
+                    android:tint="@color/home_text_primary"
+                    android:importantForAccessibility="no" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/vs_8"
+                    android:text="推送"
+                    android:textColor="@color/home_text_primary"
+                    android:textSize="@dimen/ts_18" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/btnHomeSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/vs_40"
+                android:layout_marginLeft="@dimen/vs_8"
+                android:paddingLeft="@dimen/vs_14"
+                android:paddingRight="@dimen/vs_14"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_home_tool"
+                android:focusable="true"
+                android:clickable="true">
+                <ImageView
+                    android:layout_width="@dimen/vs_20"
+                    android:layout_height="@dimen/vs_20"
+                    android:src="@drawable/icon_setting"
+                    android:tint="@color/home_text_primary"
+                    android:importantForAccessibility="no" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/vs_8"
+                    android:text="设置"
+                    android:textColor="@color/home_text_primary"
+                    android:textSize="@dimen/ts_18" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/tvDate"
+                android:layout_width="@dimen/vs_70"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="@dimen/vs_20"
+                android:gravity="right|center_vertical"
                 android:textColor="@color/home_text_secondary"
-                android:textSize="@dimen/ts_16" />
+                android:textSize="@dimen/ts_18"
+                android:singleLine="true" />
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="@dimen/vs_20"
-            android:alpha="0.85"
-            android:focusable="false"
-            android:focusableInTouchMode="false"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="46mm"
+            android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:includeFontPadding="false"
-            android:letterSpacing="0.03"
-            android:maxLines="1"
-            android:textAlignment="gravity"
-            android:textColor="@color/home_text_secondary"
-            android:textSize="@dimen/ts_16"
-            tools:text="22:14" />
-    </LinearLayout>
+            android:clipChildren="false"
+            android:clipToPadding="false">
+            <com.owen.tvrecyclerview.widget.TvRecyclerView
+                android:id="@+id/mGridView"
+                android:layout_width="0mm"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                app:tv_selectedItemIsCentered="false" />
 
+        </LinearLayout>
+    </LinearLayout>
     <LinearLayout
         android:id="@+id/contentLayout"
-        android:layout_width="@dimen/vs_0"
-        android:layout_height="@dimen/vs_0"
-        android:clipChildren="false"
-        android:clipToPadding="false"
+        android:layout_width="0mm"
+        android:layout_height="0mm"
         android:orientation="vertical"
+        app:layout_constraintTop_toBottomOf="@id/topLayout"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/topLayout">
-
+        app:layout_constraintRight_toRightOf="parent">
         <com.github.tvbox.osc.ui.tv.widget.NoScrollViewPager
             android:id="@+id/mViewPager"
             android:layout_width="match_parent"

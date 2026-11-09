@@ -1,25 +1,16 @@
 package com.github.tvbox.osc.ui.activity;
 
 import android.Manifest;
-import android.animation.Animator;
-import android.animation.AnimatorSet;
-import android.animation.IntEvaluator;
-import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.ForegroundColorSpan;
+import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.Animation;
 import android.view.animation.BounceInterpolator;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -38,12 +29,14 @@ import com.github.tvbox.osc.api.ApiConfig;
 import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.base.BaseLazyFragment;
 import com.github.tvbox.osc.bean.AbsSortXml;
-import com.github.tvbox.osc.bean.Movie;
 import com.github.tvbox.osc.bean.MovieSort;
 import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.event.RefreshEvent;
 import com.github.tvbox.osc.server.ControlManager;
 import com.github.tvbox.osc.ui.adapter.HomePageAdapter;
+import com.github.tvbox.osc.ui.activity.CollectActivity;
+import com.github.tvbox.osc.ui.activity.LivePlayActivity;
+import com.github.tvbox.osc.ui.activity.PushActivity;
 import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
 import com.github.tvbox.osc.ui.adapter.SortAdapter;
 import com.github.tvbox.osc.ui.dialog.SelectDialog;
@@ -53,14 +46,11 @@ import com.github.tvbox.osc.ui.fragment.UserFragment;
 import com.github.tvbox.osc.ui.tv.widget.DefaultTransformer;
 import com.github.tvbox.osc.ui.tv.widget.FixedSpeedScroller;
 import com.github.tvbox.osc.ui.tv.widget.NoScrollViewPager;
-import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.AppManager;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
-import com.github.tvbox.osc.util.FileUtils;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
-import com.github.tvbox.osc.util.MD5;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
@@ -70,9 +60,7 @@ import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
-import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
 import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -103,7 +91,6 @@ public class HomeActivity extends BaseActivity {
     private String loadingSourceKey;
     private SourceBean previousHomeSource;
     private boolean homeSortLoading = false;
-    private boolean refreshHomeRec = false;
     private final Handler mHandler = new Handler();
     private long mExitTime = 0;
     private boolean eventBusRegistered = false;
@@ -134,7 +121,7 @@ public class HomeActivity extends BaseActivity {
             hideSysBar();
             ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) topLayout.getLayoutParams();
             params.topMargin = AutoSizeUtils.mm2px(HomeActivity.this, 0.0f);
-            params.height = AutoSizeUtils.mm2px(HomeActivity.this, 75.0f);
+            params.height = getResources().getDimensionPixelSize(R.dimen.home_header_height);
             topLayout.setLayoutParams(params);
             topLayout.setAlpha(1.0f);
             refreshTopInfoTextSize();
@@ -180,7 +167,7 @@ public class HomeActivity extends BaseActivity {
         this.mViewPager = findViewById(R.id.mViewPager);
         this.sortAdapter = new SortAdapter();
         this.mGridView.setLayoutManager(new V7LinearLayoutManager(this.mContext, 0, false));
-        this.mGridView.setSpacingWithMargins(0, AutoSizeUtils.dp2px(this.mContext, 10.0f));
+        this.mGridView.setSpacingWithMargins(0, AutoSizeUtils.mm2px(this.mContext, 8.0f));
         this.mGridView.setAdapter(this.sortAdapter);
         sortAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
             @Override
@@ -235,6 +222,7 @@ public class HomeActivity extends BaseActivity {
                     }
                     HomeActivity.this.sortFocusView = view;
                     HomeActivity.this.sortFocused = position;
+                    view.setSelected(position == currentSelected);
                     mHandler.removeCallbacks(mDataRunnable);
                     mHandler.postDelayed(mDataRunnable, 200);
                 }
@@ -247,7 +235,7 @@ public class HomeActivity extends BaseActivity {
                     if ((baseLazyFragment instanceof GridFragment) && !sortAdapter.getItem(position).filters.isEmpty()) {// 弹出筛选
                         ((GridFragment) baseLazyFragment).showFilter();
                     } else if (baseLazyFragment instanceof UserFragment) {
-                        showSiteSwitch();
+                        ((UserFragment) baseLazyFragment).requestHeroFocus();
                     }
                 }
             }
@@ -256,16 +244,10 @@ public class HomeActivity extends BaseActivity {
         this.mGridView.setOnInBorderKeyEventListener(new TvRecyclerView.OnInBorderKeyEventListener() {
             public boolean onInBorderKeyEvent(int direction, View view) {
                 if (direction == View.FOCUS_UP) {
-                    BaseLazyFragment baseLazyFragment = fragments.get(sortFocused);
-                    if (baseLazyFragment instanceof UserFragment) {
-                        refreshHomeSort();
-                        return true;
-                    }
-                    if (baseLazyFragment instanceof GridFragment) {
-                        ((GridFragment) baseLazyFragment).forceRefresh();
-                        return true;
-                    }
+                    findViewById(R.id.btnHomeSource).requestFocus();
+                    return true;
                 }
+                if (fragments.isEmpty() || sortFocused < 0 || sortFocused >= fragments.size()) return false;
                 if (direction != View.FOCUS_DOWN) {
                     return false;
                 }
@@ -276,42 +258,15 @@ public class HomeActivity extends BaseActivity {
                 return !((GridFragment) baseLazyFragment).isLoad();
             }
         });
-        tvName.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                FastClickCheckUtil.check(v);
-                if(dataInitOk && jarInitOk){
-                    String jar=ApiConfig.get().getHomeSourceBean().getJar();
-                    String jarUrl=!jar.isEmpty()?jar:ApiConfig.get().getSpider();
-                    String jarSource = jarUrl.split(";md5;")[0];
-                    File cspCacheDir = new File(FileUtils.getFilePath() + "/csp/" + MD5.string2MD5(jarSource) + ".jar");
-                    File jarCacheDir = new File(FileUtils.getCachePath() + "/jar/" + MD5.string2MD5(jarSource) + ".jar");
-                    File jarFullCacheDir = new File(FileUtils.getCachePath() + "/jar/" + MD5.string2MD5(jarUrl) + ".jar");
-                    Toast.makeText(mContext, "缓存已清除", Toast.LENGTH_LONG).show();
-                    new Thread(() -> {
-                        try {
-                            FileUtils.deleteFile(cspCacheDir);
-                            FileUtils.deleteFile(jarCacheDir);
-                            FileUtils.deleteFile(jarFullCacheDir);
-                            FileUtils.clearSpiderCacheFiles();
-                            ApiConfig.get().clearSpiderCache();
-                            refreshHome();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }).start();
-
-                }else {
-                    jumpActivity(SettingActivity.class);
-                }
-            }
-        });
-        tvName.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                jumpActivity(SettingActivity.class);
-                return true;
-            }
+        findViewById(R.id.btnHomeSource).setOnClickListener(v -> showSiteSwitch());
+        findViewById(R.id.btnHomeCollect).setOnClickListener(v -> jumpActivity(CollectActivity.class));
+        findViewById(R.id.btnHomePush).setOnClickListener(v -> jumpActivity(PushActivity.class));
+        findViewById(R.id.btnHomeSettings).setOnClickListener(v -> jumpActivity(SettingActivity.class));
+        // Live is an action, not a focus-triggered category page.
+        findViewById(R.id.btnHomeLive).setOnClickListener(v -> {
+            mHandler.removeCallbacks(mDataRunnable);
+            sortChange = false;
+            jumpActivity(LivePlayActivity.class);
         });
         findViewById(R.id.btnHomeSearch).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -353,7 +308,6 @@ public class HomeActivity extends BaseActivity {
                 }
                 updateSortData(newSortData);
                 initViewPager(absXml);
-                updateHomeRec(absXml);
                 applyHomeBrand();
                 tvName.clearAnimation();
                 homeSortLoading = false;
@@ -547,7 +501,7 @@ public class HomeActivity extends BaseActivity {
         if (sortAdapter.getData().size() > 0) {
             for (MovieSort.SortData data : sortAdapter.getData()) {
                 if (data.id.equals("my0")) {
-                    if (Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) == 1 && absXml != null && absXml.videoList != null && absXml.videoList.size() > 0) {
+                    if (absXml != null && absXml.videoList != null && !absXml.videoList.isEmpty()) {
                         fragments.add(UserFragment.newInstance(absXml.videoList));
                     } else {
                         fragments.add(UserFragment.newInstance(null));
@@ -627,7 +581,8 @@ public class HomeActivity extends BaseActivity {
         // 如果处于 VOD 删除模式，则退出该模式并刷新界面
         if (HawkConfig.hotVodDelete) {
             HawkConfig.hotVodDelete = false;
-            UserFragment.homeHotVodAdapter.notifyDataSetChanged();
+            UserFragment home = getHomeFragment();
+            if (home != null) home.exitDeleteMode();
             return;
         }
 
@@ -654,10 +609,12 @@ public class HomeActivity extends BaseActivity {
             } else {
                 doExit();
             }
-        } else if (baseLazyFragment instanceof UserFragment && UserFragment.tvHotList.canScrollVertically(-1)) {
-            // 如果 UserFragment 列表可以向上滚动，则滚动到顶部
-            UserFragment.tvHotList.scrollToPosition(0);
-            this.mGridView.setSelection(0);
+        } else if (baseLazyFragment instanceof UserFragment) {
+            if (sortFocusView != null && !sortFocusView.hasFocus()) {
+                sortFocusView.requestFocus();
+            } else {
+                doExit();
+            }
         } else {
             doExit();
         }
@@ -737,9 +694,16 @@ public class HomeActivity extends BaseActivity {
         public void run() {
             if (sortChange) {
                 sortChange = false;
+                if (sortFocused < 0 || sortFocused >= fragments.size()) return;
                 BaseLazyFragment baseLazyFragment = fragments.get(sortFocused);
                 if (sortFocused != currentSelected) {
+                    MovieSort.SortData previous = sortAdapter.getItem(currentSelected);
+                    if (previous != null) previous.select = false;
+                    View previousView = mGridView.getLayoutManager().findViewByPosition(currentSelected);
+                    if (previousView != null) previousView.setSelected(false);
                     currentSelected = sortFocused;
+                    sortAdapter.getItem(currentSelected).select = true;
+                    if (sortFocusView != null) sortFocusView.setSelected(true);
                     mViewPager.setCurrentItem(sortFocused, false);
                     changeTop(sortFocused != 0);
                     if (baseLazyFragment instanceof GridFragment && ((GridFragment) baseLazyFragment).shouldReloadOnSelect()) {
@@ -777,52 +741,21 @@ public class HomeActivity extends BaseActivity {
     byte topHide = 0;
 
     private void changeTop(boolean hide) {
-        ViewObj viewObj = new ViewObj(topLayout, (ViewGroup.MarginLayoutParams) topLayout.getLayoutParams());
-        AnimatorSet animatorSet = new AnimatorSet();
-        animatorSet.addListener(new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(Animator animation) {
+        topHide = 0;
+        topLayout.setAlpha(1f);
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) topLayout.getLayoutParams();
+        params.height = getResources().getDimensionPixelSize(R.dimen.home_header_height);
+        params.topMargin = 0;
+        topLayout.setLayoutParams(params);
+    }
 
-            }
+    public void openHomeSourcePicker() {
+        showSiteSwitch();
+    }
 
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                topHide = (byte) (hide ? 1 : 0);
-            }
-
-            @Override
-            public void onAnimationCancel(Animator animation) {
-
-            }
-
-            @Override
-            public void onAnimationRepeat(Animator animation) {
-
-            }
-        });
-        if (hide && topHide == 0) {
-            animatorSet.playTogether(ObjectAnimator.ofObject(viewObj, "marginTop", new IntEvaluator(),
-                            AutoSizeUtils.mm2px(this.mContext, 0.0f),
-                            AutoSizeUtils.mm2px(this.mContext, 0.0f)),
-                    ObjectAnimator.ofObject(viewObj, "height", new IntEvaluator(),
-                            AutoSizeUtils.mm2px(this.mContext, 75.0f),
-                            AutoSizeUtils.mm2px(this.mContext, 1.0f)),
-                    ObjectAnimator.ofFloat(this.topLayout, "alpha", 1.0f, 0.0f));
-            animatorSet.setDuration(200);
-            animatorSet.start();
-            return;
-        }
-        if (!hide && topHide == 1) {
-            animatorSet.playTogether(ObjectAnimator.ofObject(viewObj, "marginTop", new IntEvaluator(),
-                            AutoSizeUtils.mm2px(this.mContext, 0.0f),
-                            AutoSizeUtils.mm2px(this.mContext, 0.0f)),
-                    ObjectAnimator.ofObject(viewObj, "height", new IntEvaluator(),
-                            AutoSizeUtils.mm2px(this.mContext, 1.0f),
-                            AutoSizeUtils.mm2px(this.mContext, 75.0f)),
-                    ObjectAnimator.ofFloat(this.topLayout, "alpha", 0.0f, 1.0f));
-            animatorSet.setDuration(200);
-            animatorSet.start();
-        }
+    private UserFragment getHomeFragment() {
+        return !fragments.isEmpty() && fragments.get(0) instanceof UserFragment
+                ? (UserFragment) fragments.get(0) : null;
     }
 
     @Override
@@ -896,23 +829,11 @@ public class HomeActivity extends BaseActivity {
     }
 
     private void refreshHomeSort() {
-        refreshHomeRec = true;
-        if (UserFragment.homeHotVodAdapter != null) {
-            UserFragment.homeHotVodAdapter.setNewData(new ArrayList<Movie.Video>());
-        }
         SourceBean home = ApiConfig.get().getHomeSourceBean();
         if (home != null) {
             SourceViewModel.clearSortCache(home.getKey());
         }
         refreshHome(false);
-    }
-
-    private void updateHomeRec(AbsSortXml absXml) {
-        if (!refreshHomeRec) return;
-        refreshHomeRec = false;
-        if (Hawk.get(HawkConfig.HOME_REC, HawkConfig.DEFAULT_HOME_REC) != 1) return;
-        if (absXml == null || absXml.videoList == null || UserFragment.homeHotVodAdapter == null) return;
-        UserFragment.homeHotVodAdapter.setNewData(absXml.videoList);
     }
 
     private void refreshHome(final boolean restart)
@@ -993,20 +914,17 @@ public class HomeActivity extends BaseActivity {
 
     private void applyHomeBrand() {
         if (tvName == null) return;
-        SpannableString brand = new SpannableString("影·视");
-        brand.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.home_accent)),
-                1, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        tvName.setText(brand);
+        tvName.setText("TVBox");
+        SourceBean source = ApiConfig.get().getHomeSourceBean();
+        TextView sourceButton = findViewById(R.id.btnHomeSource);
+        if (sourceButton != null) {
+            sourceButton.setText("片源 · " + (source == null || TextUtils.isEmpty(source.getName())
+                    ? "选择片源" : source.getName()));
+        }
     }
 
-    private void tvNameAnimation()
-    {
+    private void tvNameAnimation() {
+        // Loading must not blink the brand or keep the complete TV screen animating.
         tvName.clearAnimation();
-        AlphaAnimation blinkAnimation = new AlphaAnimation(0.0f, 1.0f);
-        blinkAnimation.setDuration(500);
-        blinkAnimation.setStartOffset(20);
-        blinkAnimation.setRepeatMode(Animation.REVERSE);
-        blinkAnimation.setRepeatCount(Animation.INFINITE);
-        tvName.startAnimation(blinkAnimation);
     }
 }

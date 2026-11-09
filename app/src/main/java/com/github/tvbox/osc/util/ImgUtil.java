@@ -9,6 +9,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
+import android.util.LruCache;
 import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
@@ -43,7 +44,12 @@ import java.util.Random;
 import me.jessyan.autosize.utils.AutoSizeUtils;
 
 public class ImgUtil {
-    private static final Map<String, Drawable> drawableCache = new HashMap<>();
+    private static final LruCache<String, Bitmap> drawableCache = new LruCache<String, Bitmap>(4 * 1024 * 1024) {
+        @Override
+        protected int sizeOf(String key, Bitmap bitmap) {
+            return bitmap.getAllocationByteCount();
+        }
+    };
     public static int defaultWidth = 244;
     public static int defaultHeight = 320;
 
@@ -111,12 +117,12 @@ public class ImgUtil {
     public static void load(String url, ImageView view, int roundingRadius, int newWidth, int newHeight, String label, ImageView.ScaleType scaleType) {
         view.setScaleType(scaleType);
         if (roundingRadius <= 0) roundingRadius = 1;
-        Drawable fallback = createTextDrawable(TextUtils.isEmpty(label) ? "TVBox" : label, newWidth, newHeight, roundingRadius);
-        Drawable placeholder = createImagePlaceholderDrawable(newWidth, newHeight, roundingRadius);
         if (isInvalidImageUrl(url)) {
-            view.setImageDrawable(fallback);
+            Glide.with(App.getInstance()).clear(view);
+            view.setImageDrawable(createTextDrawable(label, newWidth, newHeight, roundingRadius));
             return;
         }
+        Drawable placeholder = createImagePlaceholderDrawable(newWidth, newHeight, roundingRadius);
         RequestOptions options = new RequestOptions()
                 .format(DecodeFormat.PREFER_RGB_565)
                 .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
@@ -129,8 +135,7 @@ public class ImgUtil {
                 .asBitmap()
                 .load(getUrl(url))
                 .placeholder(placeholder)
-                .error(fallback)
-                .listener(getListener(view, scaleType, fallback))
+                .listener(getListener(view, scaleType, label, newWidth, newHeight, roundingRadius))
                 .apply(options)
                 .into(view);
     }
@@ -138,12 +143,12 @@ public class ImgUtil {
     public static void load(String url, ImageView view, int roundingRadius, int newWidth, int newHeight, String label) {
         view.setScaleType(ImageView.ScaleType.CENTER_CROP);
         if (roundingRadius <= 0) roundingRadius = 1;
-        Drawable fallback = createTextDrawable(TextUtils.isEmpty(label) ? "TVBox" : label, newWidth, newHeight, roundingRadius);
-        Drawable placeholder = createImagePlaceholderDrawable(newWidth, newHeight, roundingRadius);
         if (isInvalidImageUrl(url)) {
-            view.setImageDrawable(fallback);
+            Glide.with(App.getInstance()).clear(view);
+            view.setImageDrawable(createTextDrawable(label, newWidth, newHeight, roundingRadius));
             return;
         }
+        Drawable placeholder = createImagePlaceholderDrawable(newWidth, newHeight, roundingRadius);
         RequestOptions options = new RequestOptions()
                 .format(DecodeFormat.PREFER_RGB_565)
                 .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
@@ -156,8 +161,7 @@ public class ImgUtil {
                 .asBitmap()
                 .load(getUrl(url))
                 .placeholder(placeholder)
-                .error(fallback)
-                .listener(getListener(view, ImageView.ScaleType.CENTER_CROP, fallback))
+                .listener(getListener(view, ImageView.ScaleType.CENTER_CROP, label, newWidth, newHeight, roundingRadius))
                 .apply(options)
                 .into(view);
     }
@@ -192,7 +196,8 @@ public class ImgUtil {
         if (cornerRadius <= 0) cornerRadius = 1;
         String key = text + "_" + width + "x" + height + "_" + (int) cornerRadius;
         text = text.substring(0, 1);
-        if (drawableCache.containsKey(key)) return drawableCache.get(key);
+        Bitmap cached = drawableCache.get(key);
+        if (cached != null) return bitmapDrawable(cached);
         int randomColor = getRandomColor();
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -208,9 +213,8 @@ public class ImgUtil {
         float x = width / 2f;
         float y = (height - fontMetrics.bottom - fontMetrics.top) / 2f;
         canvas.drawText(text, x, y, paint);
-        Drawable drawable = new BitmapDrawable(App.getInstance().getResources(), bitmap);
-        drawableCache.put(key, drawable);
-        return drawable;
+        drawableCache.put(key, bitmap);
+        return bitmapDrawable(bitmap);
     }
 
     private static Drawable createImagePlaceholderDrawable(int width, int height, float cornerRadius) {
@@ -218,7 +222,8 @@ public class ImgUtil {
         if (height <= 0) height = 240;
         if (cornerRadius <= 0) cornerRadius = 1;
         String key = "placeholder_" + width + "x" + height + "_" + (int) cornerRadius;
-        if (drawableCache.containsKey(key)) return drawableCache.get(key);
+        Bitmap cached = drawableCache.get(key);
+        if (cached != null) return bitmapDrawable(cached);
 
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -230,13 +235,16 @@ public class ImgUtil {
             canvas.drawBitmap(icon, left, top, null);
         }
 
-        Drawable drawable = new BitmapDrawable(App.getInstance().getResources(), bitmap);
-        drawableCache.put(key, drawable);
-        return drawable;
+        drawableCache.put(key, bitmap);
+        return bitmapDrawable(bitmap);
+    }
+
+    private static Drawable bitmapDrawable(Bitmap bitmap) {
+        return new BitmapDrawable(App.getInstance().getResources(), bitmap);
     }
 
     public static void clearCache() {
-        drawableCache.clear();
+        drawableCache.evictAll();
     }
 
     public static void clearMemoryCache() {
@@ -317,12 +325,13 @@ public class ImgUtil {
         headers.put(key, value.trim());
     }
 
-    private static RequestListener<Bitmap> getListener(final ImageView view, final ImageView.ScaleType scaleType, final Drawable fallback) {
+    private static RequestListener<Bitmap> getListener(ImageView view, ImageView.ScaleType scaleType,
+                                                       String label, int width, int height, int radius) {
         return new RequestListener<Bitmap>() {
             @Override
             public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Bitmap> target, boolean isFirstResource) {
                 view.setScaleType(scaleType);
-                view.setImageDrawable(fallback);
+                view.setImageDrawable(createTextDrawable(label, width, height, radius));
                 return true;
             }
 

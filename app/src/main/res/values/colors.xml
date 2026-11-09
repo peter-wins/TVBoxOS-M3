@@ -51,15 +51,15 @@
     <color name="dialog_text_primary">#FFFFFFFF</color>
     <color name="dialog_text_hint">#80FFFFFF</color>
 
-    <!-- 首页影院沉浸风配色：深色底 + 暖金强调 -->
-    <color name="home_bg_deep">#FF0A0C10</color>
-    <color name="home_text_primary">#FFF6F2EA</color>
-    <color name="home_text_secondary">#B3FFFFFF</color>
-    <color name="home_text_tertiary">#66FFFFFF</color>
-    <color name="home_accent">#FFF2B65A</color>
-    <color name="home_accent_soft">#33F2B65A</color>
-    <color name="home_accent_stroke">#99F2B65A</color>
-    <color name="home_surface">#CC11141B</color>
+    <!-- 首页影院配色：深蓝底 + 蓝色交互 -->
+    <color name="home_bg_deep">#FF071321</color>
+    <color name="home_text_primary">#FFF5F8FF</color>
+    <color name="home_text_secondary">#C6D3E6</color>
+    <color name="home_text_tertiary">#91A4BE</color>
+    <color name="home_accent">#FF1687FF</color>
+    <color name="home_accent_soft">#331687FF</color>
+    <color name="home_accent_stroke">#991687FF</color>
+    <color name="home_surface">#E6122238</color>
     <color name="home_surface_stroke">#26FFFFFF</color>
 
 

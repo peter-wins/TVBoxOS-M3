@@ -101,4 +101,13 @@
     <dimen name="vs_640">640mm</dimen>
     <dimen name="vs_720">720mm</dimen>
     <dimen name="vs_960">960mm</dimen>
+    <dimen name="home_header_height">104mm</dimen>
+    <dimen name="home_page_inset">48mm</dimen>
+    <dimen name="home_poster_width">150mm</dimen>
+    <dimen name="home_poster_height">204mm</dimen>
+    <dimen name="home_shelf_height">278mm</dimen>
+    <dimen name="home_hero_width">650mm</dimen>
+    <dimen name="home_hero_poster_width">190mm</dimen>
+    <dimen name="home_hero_poster_height">266mm</dimen>
+    <dimen name="home_poster_meta_height">18mm</dimen>
 </resources>

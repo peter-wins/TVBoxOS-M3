@@ -60,6 +60,11 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         mMediaSourceHelper = ExoMediaSourceHelper.getInstance(context);
     }
 
+    /** 初始化 FFmpeg 软解库（幂等） */
+    private void initFfmpeg() {
+        FfmpegSupport.isAvailable();
+    }
+
     @Override
     public void initPlayer() {
         if (mLoadControl == null) {
@@ -72,9 +77,13 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         }
         // Media3 改用了链式 Builder 模式
         if (mRenderersFactory == null) {
-            mRenderersFactory = new DefaultRenderersFactory(mAppContext)
+            // 初始化 FFmpeg 软解库（jellyfin media3-ffmpeg-decoder）
+            initFfmpeg();
+            mRenderersFactory = new FfmpegRenderersFactory(mAppContext)
                     .setEnableDecoderFallback(true)
-                    .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
+                    // MODE_ON：硬解优先，只有硬解不支持的格式才回落到 FFmpeg 软解。
+                    // 电视 CPU 性能有限，若用 PREFER 会导致普通 H.264 也走软解而卡顿。
+                    .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
         }
         if (mTrackSelector == null) {
             mTrackSelector = new DefaultTrackSelector(mAppContext);
