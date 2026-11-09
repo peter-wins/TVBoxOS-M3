@@ -35,6 +35,8 @@ public class HawkConfig {
     public static final String LIVE_CHANNEL_REVERSE = "live_channel_reverse";
     public static final String LIVE_CROSS_GROUP = "live_cross_group";
     public static final String LIVE_CONNECT_TIMEOUT = "live_connect_timeout";
+    // 配置版本号：用于升级后的一次性迁移（Media3 升级时为 2）
+    public static final String CONFIG_VERSION = "config_version";
     public static final String LIVE_SHOW_NET_SPEED = "live_show_net_speed";
     public static final String LIVE_SHOW_RESOLUTION = "live_show_resolution";
     public static final String LIVE_SHOW_TIME = "live_show_time";
