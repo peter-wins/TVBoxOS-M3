@@ -106,3 +106,4 @@ output-metadata.json
 mockup-tv/
 docs/design/concepts/
 docs/design/imagegen-prompts.json
+.github/workflows/*.jks
